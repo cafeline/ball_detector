@@ -33,8 +33,10 @@ private:
   void filter_points(const std::vector<Point3D>& input, std::vector<Point3D>& output);
   Point3D calculate_centroid(const std::vector<Point3D>& points);
   visualization_msgs::msg::Marker create_ball_marker(const Point3D& centroid, const std_msgs::msg::Header& header);
+  visualization_msgs::msg::Marker create_bounding_box_marker(const std::vector<Point3D>& points, const std_msgs::msg::Header& header);
   visualization_msgs::msg::Marker create_bounding_box_marker(const std_msgs::msg::Header& header);
   void timer_callback();
+  std::vector<Point3D> voxel_clustering(const std::vector<Point3D>& points, const Point3D& centroid);
   
   // 新しく追加する関数
   std::vector<Region> extract_regions(const std::vector<Point3D>& points, size_t max_regions);

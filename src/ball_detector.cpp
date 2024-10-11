@@ -3,7 +3,11 @@
 #include <rclcpp/logging.hpp>
 #include <algorithm>
 #include <random>  // 色生成のために追加
+#include <unordered_map>  // ボクセルベースのクラスタリングのために追加
+#include <cmath>  // ボクセルベースのクラスタリングのために追加
 
+// 新しい定数を追加
+const float VOXEL_SIZE = 0.2f;  // 200mm = 0.2m
 
 BallDetector::BallDetector() : Node("ball_detector")
 {
@@ -44,59 +48,28 @@ void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Shar
   // 指定領域内の点群を抽出
   std::vector<Point3D> filtered_points;
   filter_points(points, filtered_points);
-////////////////////////////////////////////////////////////////////////////////////
-  // // 重心位置を計算
-  // Point3D centroid = calculate_centroid(filtered_points);
 
-  // // マーカーを作成してパブリッシュ
-  // std_msgs::msg::Header header;
-  // header.stamp = this->get_clock()->now();
-  // header.frame_id = frame_id_;  // frame_id を frame_id_ に設定
-  // auto marker = create_ball_marker(centroid, header);
-  // marker_publisher_->publish(marker);
+  // 重心位置を計算
+  Point3D centroid = calculate_centroid(filtered_points);
 
-  // // フィルタリングされた点群をパブリッシュ
-  // auto filtered_cloud_msg = vector_to_PC2(filtered_points);
-  // filtered_cloud_msg.header = msg->header;
-  // filtered_cloud_publisher_->publish(filtered_cloud_msg);
-////////////////////////////////////////////////////////////////////////////////////
+  // ボクセルベースのクラスタリングを実行
+  std::vector<Point3D> clustered_points = voxel_clustering(filtered_points, centroid);
 
-  // 領域の抽出
-  std::vector<Region> regions = extract_regions(filtered_points, 1);
-
-  // 各領域に対して処理を行う（マーカーとバウンディングボックスを作成）
+  // マーカーを作成してパブリッシュ
   std_msgs::msg::Header header;
   header.stamp = this->get_clock()->now();
   header.frame_id = frame_id_;
+  auto marker = create_ball_marker(centroid, header);
+  marker_publisher_->publish(marker);
 
-  // ランダムカラー生成の準備
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_real_distribution<> dis(0.0, 1.0);
+  // クラスタリングされた点群をパブリッシュ
+  auto clustered_cloud_msg = vector_to_PC2(clustered_points);
+  clustered_cloud_msg.header = msg->header;
+  filtered_cloud_publisher_->publish(clustered_cloud_msg);
 
-  for (size_t i = 0; i < regions.size(); ++i)
-  {
-      // 色の設定（ランダム）
-      regions[i].color = {static_cast<float>(dis(gen)), static_cast<float>(dis(gen)), static_cast<float>(dis(gen)), 1.0f};
-
-      // 重心マーカーの作成とパブリッシュ
-      Point3D centroid = calculate_centroid(regions[i].points);
-      auto marker = create_ball_marker(centroid, header);
-      marker.id = static_cast<int>(i + 1); // IDを変更
-      marker.color.r = regions[i].color[0];
-      marker.color.g = regions[i].color[1];
-      marker.color.b = regions[i].color[2];
-      marker_publisher_->publish(marker);
-
-      // バウンディングボックスマーカーの作成とパブリッシュ
-      auto bbox_marker = create_region_bounding_box_marker(regions[i], header, i + 1);
-      bounding_box_publisher_->publish(bbox_marker);
-  }
-
-  // フィルタリングされた点群をパブリッシュ
-  auto filtered_cloud_msg = vector_to_PC2(filtered_points);
-  filtered_cloud_msg.header = msg->header;
-  filtered_cloud_publisher_->publish(filtered_cloud_msg);
+  // バウンディングボックスを作成してパブリッシュ
+  auto bbox_marker = create_bounding_box_marker(clustered_points, header);
+  bounding_box_publisher_->publish(bbox_marker);
 }
 
 std::vector<Point3D> BallDetector::PC2_to_vector(const sensor_msgs::msg::PointCloud2& cloud_msg)
@@ -222,6 +195,50 @@ visualization_msgs::msg::Marker BallDetector::create_ball_marker(const Point3D& 
   return marker;
 }
 
+// 点群とヘッダーを引数に取る関数
+visualization_msgs::msg::Marker BallDetector::create_bounding_box_marker(const std::vector<Point3D>& points, const std_msgs::msg::Header& header)
+{
+  visualization_msgs::msg::Marker marker;
+  marker.header = header;
+  marker.ns = "ball_detector_bounding_box";
+  marker.id = 1;
+  marker.type = visualization_msgs::msg::Marker::CUBE;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+
+  // クラスタリングされた点群から最小・最大座標を計算
+  Point3D min_point = {std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
+  Point3D max_point = {std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest()};
+
+  for (const auto& point : points)
+  {
+    min_point.x = std::min(min_point.x, point.x);
+    min_point.y = std::min(min_point.y, point.y);
+    min_point.z = std::min(min_point.z, point.z);
+    max_point.x = std::max(max_point.x, point.x);
+    max_point.y = std::max(max_point.y, point.y);
+    max_point.z = std::max(max_point.z, point.z);
+  }
+
+  marker.pose.position.x = (min_point.x + max_point.x) / 2.0;
+  marker.pose.position.y = (min_point.y + max_point.y) / 2.0;
+  marker.pose.position.z = (min_point.z + max_point.z) / 2.0;
+  marker.pose.orientation.w = 1.0;
+
+  marker.scale.x = max_point.x - min_point.x;
+  marker.scale.y = max_point.y - min_point.y;
+  marker.scale.z = max_point.z - min_point.z;
+
+  marker.color.r = 0.0;
+  marker.color.g = 1.0;
+  marker.color.b = 0.0;
+  marker.color.a = 0.5;
+
+  marker.lifetime = rclcpp::Duration(0, 1e8);  // 0.1 seconds
+
+  return marker;
+}
+
+// ヘッダーのみを引数に取る関数
 visualization_msgs::msg::Marker BallDetector::create_bounding_box_marker(const std_msgs::msg::Header& header)
 {
   visualization_msgs::msg::Marker marker;
@@ -320,7 +337,7 @@ visualization_msgs::msg::Marker BallDetector::create_region_bounding_box_marker(
   marker.pose.position.z = 2.0 / 2.0;
   marker.pose.orientation.w = 1.0;
 
-  // スケールを設定
+  // スケール設定
   marker.scale.x = region.max_x - region.min_x;
   marker.scale.y = region.max_y - region.min_y;
   marker.scale.z = region.max_z - region.min_z;
@@ -370,6 +387,44 @@ sensor_msgs::msg::PointCloud2 BallDetector::region_to_PC2(const Region& region)
   }
 
   return cloud_msg;
+}
+
+// 新しいメソッドを追加: ボクセルベースのクラスタリング
+std::vector<Point3D> BallDetector::voxel_clustering(const std::vector<Point3D>& points, const Point3D& centroid){
+  std::vector<Point3D> clustered_points;
+  std::unordered_map<std::string, std::vector<Point3D>> voxels;
+
+  for (const auto& point : points)
+  {
+    // 重心からの距離を計算
+    float distance = std::sqrt(
+      std::pow(point.x - centroid.x, 2) +
+      std::pow(point.y - centroid.y, 2) +
+      std::pow(point.z - centroid.z, 2)
+    );
+
+    // 重心から1m以内の点のみを考慮
+    if (distance <= 2.0f)
+    {
+      // ボクセルのキーを計算
+      int vx = static_cast<int>(point.x / VOXEL_SIZE);
+      int vy = static_cast<int>(point.y / VOXEL_SIZE);
+      int vz = static_cast<int>(point.z / VOXEL_SIZE);
+      std::string key = std::to_string(vx) + "," + std::to_string(vy) + "," + std::to_string(vz);
+
+      // ボクセルに点を追加
+      voxels[key].push_back(point);
+    }
+  }
+
+  // 各ボクセルの重心を計算し、クラスタリングされた点群に追加
+  for (const auto& voxel : voxels)
+  {
+    Point3D voxel_centroid = calculate_centroid(voxel.second);
+    clustered_points.push_back(voxel_centroid);
+  }
+
+  return clustered_points;
 }
 
 int main(int argc, char** argv)
