@@ -96,6 +96,18 @@ Visualization Manager:
         Value: /bounding_box_marker
       Value: true
     - Class: rviz_default_plugins/MarkerArray
+      Enabled: false
+      Name: MarkerArray
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /occupied_voxels
+      Value: false
+    - Class: rviz_default_plugins/MarkerArray
       Enabled: true
       Name: MarkerArray
       Namespaces:
@@ -153,7 +165,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 2.002872943878174
+      Distance: 2.6743595600128174
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
