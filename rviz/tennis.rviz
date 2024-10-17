@@ -26,7 +26,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: PointCloud2
 Visualization Manager:
   Class: ""
   Displays:
@@ -86,21 +86,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        ball_detector: true
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /ball_marker
-      Value: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        ball_detector_bounding_box: true
-        ball_detector_region_bounding_box: true
+        detection_area: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -108,6 +94,18 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /bounding_box_marker
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: MarkerArray
+      Namespaces:
+        voxel_markers: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /occupied_voxels
       Value: true
   Enabled: true
   Global Options:
@@ -155,25 +153,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 1.8985927104949951
+      Distance: 2.002872943878174
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -1.2106642723083496
-        Y: 0.07872521132230759
-        Z: 1.5027471780776978
+        X: -0.964767575263977
+        Y: -0.6663352251052856
+        Z: 1.5238124132156372
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.27539899945259094
+      Pitch: 0.3153989613056183
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.1304030418395996
+      Yaw: 3.3154079914093018
     Saved: ~
 Window Geometry:
   Displays:
