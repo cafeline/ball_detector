@@ -7,10 +7,6 @@
 #include <cmath>  // ボクセルベースのクラスタリングのために追加
 #include <chrono>
 #include <queue>
-// 新しい定数を追加
-const float VOXEL_SIZE_X = 0.1f;
-const float VOXEL_SIZE_Y = 0.1f;
-const float VOXEL_SIZE_Z = 0.1f;
 
 BallDetector::BallDetector() : Node("ball_detector") {
   subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -19,12 +15,28 @@ BallDetector::BallDetector() : Node("ball_detector") {
   filtered_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("filtered_pointcloud", 10);
   detection_area_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("bounding_box_marker", 10);
 
-  this->declare_parameter("min_x", 0.0);
-  this->declare_parameter("max_x", 3.0);
-  this->declare_parameter("min_y", -3.0);
-  this->declare_parameter("max_y", 3.0);
-  this->declare_parameter("min_z", 0.0);
+  load_parameters();
+}
+
+void BallDetector::load_parameters(){
+  this->declare_parameter("min_x", -10.0);
+  this->declare_parameter("max_x", 10.0);
+  this->declare_parameter("min_y", -10.0);
+  this->declare_parameter("max_y", 10.0);
+  this->declare_parameter("min_z", -2.0);
   this->declare_parameter("max_z", 5.0);
+  this->declare_parameter("voxel_size_x", 0.1);
+  this->declare_parameter("voxel_size_y", 0.1);
+  this->declare_parameter("voxel_size_z", 0.1);
+  params_.min_x = this->get_parameter("min_x").as_double();
+  params_.max_x = this->get_parameter("max_x").as_double();
+  params_.min_y = this->get_parameter("min_y").as_double();
+  params_.max_y = this->get_parameter("max_y").as_double();
+  params_.min_z = this->get_parameter("min_z").as_double();
+  params_.max_z = this->get_parameter("max_z").as_double();
+  params_.voxel_size_x = this->get_parameter("voxel_size_x").as_double();
+  params_.voxel_size_y = this->get_parameter("voxel_size_y").as_double();
+  params_.voxel_size_z = this->get_parameter("voxel_size_z").as_double();
 }
 
 void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
@@ -114,18 +126,11 @@ sensor_msgs::msg::PointCloud2 BallDetector::vector_to_PC2(const std::vector<Poin
 
 std::vector<Point3D> BallDetector::filter_points(const std::vector<Point3D>& input) {
   std::vector<Point3D> output;
-  double min_x = this->get_parameter("min_x").as_double();
-  double max_x = this->get_parameter("max_x").as_double();
-  double min_y = this->get_parameter("min_y").as_double();
-  double max_y = this->get_parameter("max_y").as_double();
-  double min_z = this->get_parameter("min_z").as_double();
-  double max_z = this->get_parameter("max_z").as_double();
-
   for (const auto& point : input) {
     if (point.x != 0.0f && point.y != 0.0f && point.z != 0.0f &&
-      point.x >= min_x && point.x <= max_x &&
-      point.y >= min_y && point.y <= max_y &&
-      point.z >= min_z && point.z <= max_z){
+      point.x >= params_.min_x && point.x <= params_.max_x &&
+      point.y >= params_.min_y && point.y <= params_.max_y &&
+      point.z >= params_.min_z && point.z <= params_.max_z){
       output.push_back(point);
     }
   }
@@ -176,15 +181,10 @@ visualization_msgs::msg::Marker BallDetector::create_ball_marker(const Point3D& 
 
 std::vector<Voxel> BallDetector::create_voxel(const std::vector<Point3D>& points){
   std::unordered_map<std::string, Voxel> occupied_voxels;
-
-  double min_x = this->get_parameter("min_x").as_double();
-  double min_y = this->get_parameter("min_y").as_double();
-  double min_z = this->get_parameter("min_z").as_double();
-
   for (const auto& point : points){
-    int vx = static_cast<int>((point.x - min_x) / VOXEL_SIZE_X);
-    int vy = static_cast<int>((point.y - min_y) / VOXEL_SIZE_Y);
-    int vz = static_cast<int>((point.z - min_z) / VOXEL_SIZE_Z);
+    int vx = static_cast<int>((point.x - params_.min_x) / params_.voxel_size_x);
+    int vy = static_cast<int>((point.y - params_.min_y) / params_.voxel_size_y);
+    int vz = static_cast<int>((point.z - params_.min_z) / params_.voxel_size_z);
     std::string key = std::to_string(vx) + "," + std::to_string(vy) + "," + std::to_string(vz);
     if (occupied_voxels.find(key) == occupied_voxels.end()){  // キーがマップ内に存在しない場合、新しいVoxelをマップに追加
       occupied_voxels[key] = Voxel(vx, vy, vz);
@@ -202,11 +202,6 @@ std::vector<Voxel> BallDetector::create_voxel(const std::vector<Point3D>& points
 
 visualization_msgs::msg::MarkerArray BallDetector::create_voxel_markers(const std::vector<Voxel>& voxels, const std_msgs::msg::Header& header){
   visualization_msgs::msg::MarkerArray marker_array;
-
-  double min_x = this->get_parameter("min_x").as_double();
-  double min_y = this->get_parameter("min_y").as_double();
-  double min_z = this->get_parameter("min_z").as_double();
-
   RCLCPP_INFO(this->get_logger(), "voxel size: %d", voxels.size());
   for (size_t i = 0; i < voxels.size(); ++i){
     visualization_msgs::msg::Marker marker;
@@ -216,15 +211,15 @@ visualization_msgs::msg::MarkerArray BallDetector::create_voxel_markers(const st
     marker.type = visualization_msgs::msg::Marker::CUBE;
     marker.action = visualization_msgs::msg::Marker::ADD;
 
-    marker.pose.position.x = min_x + (voxels[i].x + 0.5) * VOXEL_SIZE_X;
-    marker.pose.position.y = min_y + (voxels[i].y + 0.5) * VOXEL_SIZE_Y;
-    marker.pose.position.z = min_z + (voxels[i].z + 0.5) * VOXEL_SIZE_Z;
+    marker.pose.position.x = params_.min_x + (voxels[i].x + 0.5) * params_.voxel_size_x;
+    marker.pose.position.y = params_.min_y + (voxels[i].y + 0.5) * params_.voxel_size_y;
+    marker.pose.position.z = params_.min_z + (voxels[i].z + 0.5) * params_.voxel_size_z;
     marker.pose.orientation.w = 1.0;
-    // RCLCPP_INFO(this->get_logger(), "min_x: %f  voxels[i].x: %d, VOXEL_SIZE_X: %f", min_x, voxels[i].x, VOXEL_SIZE_X);
+    // RCLCPP_INFO(this->get_logger(), "params_.min_x: %f  voxels[i].x: %d, params_.voxel_size_x: %f", params_.min_x, voxels[i].x, params_.voxel_size_x);
 
-    marker.scale.x = VOXEL_SIZE_X;
-    marker.scale.y = VOXEL_SIZE_Y;
-    marker.scale.z = VOXEL_SIZE_Z;
+    marker.scale.x = params_.voxel_size_x;
+    marker.scale.y = params_.voxel_size_y;
+    marker.scale.z = params_.voxel_size_z;
 
     marker.color.r = 0.0;
     marker.color.g = 1.0;
@@ -239,14 +234,8 @@ visualization_msgs::msg::MarkerArray BallDetector::create_voxel_markers(const st
   return marker_array;
 }
 
-visualization_msgs::msg::MarkerArray BallDetector::create_voxel_cluster_markers(const std::vector<VoxelCluster>& clusters, const std_msgs::msg::Header& header)
-{
+visualization_msgs::msg::MarkerArray BallDetector::create_voxel_cluster_markers(const std::vector<VoxelCluster>& clusters, const std_msgs::msg::Header& header) {
     visualization_msgs::msg::MarkerArray marker_array;
-
-    double min_x = this->get_parameter("min_x").as_double();
-    double min_y = this->get_parameter("min_y").as_double();
-    double min_z = this->get_parameter("min_z").as_double();
-
     RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", clusters.size());
 
     // クラスタごとに異なる色を生成するためのランダムジェネレータ
@@ -270,14 +259,14 @@ visualization_msgs::msg::MarkerArray BallDetector::create_voxel_cluster_markers(
             marker.type = visualization_msgs::msg::Marker::CUBE;
             marker.action = visualization_msgs::msg::Marker::ADD;
 
-            marker.pose.position.x = min_x + (voxel.x + 0.5) * VOXEL_SIZE_X;
-            marker.pose.position.y = min_y + (voxel.y + 0.5) * VOXEL_SIZE_Y;
-            marker.pose.position.z = min_z + (voxel.z + 0.5) * VOXEL_SIZE_Z;
+            marker.pose.position.x = params_.min_x + (voxel.x + 0.5) * params_.voxel_size_x;
+            marker.pose.position.y = params_.min_y + (voxel.y + 0.5) * params_.voxel_size_y;
+            marker.pose.position.z = params_.min_z + (voxel.z + 0.5) * params_.voxel_size_z;
             marker.pose.orientation.w = 1.0;
 
-            marker.scale.x = VOXEL_SIZE_X;
-            marker.scale.y = VOXEL_SIZE_Y;
-            marker.scale.z = VOXEL_SIZE_Z;
+            marker.scale.x = params_.voxel_size_x;
+            marker.scale.y = params_.voxel_size_y;
+            marker.scale.z = params_.voxel_size_z;
 
             // クラスタごとの色を設定
             marker.color.r = r;
@@ -302,21 +291,14 @@ visualization_msgs::msg::Marker BallDetector::create_detection_area_marker(const
   marker.type = visualization_msgs::msg::Marker::CUBE;
   marker.action = visualization_msgs::msg::Marker::ADD;
 
-  double min_x = this->get_parameter("min_x").as_double();
-  double max_x = this->get_parameter("max_x").as_double();
-  double min_y = this->get_parameter("min_y").as_double();
-  double max_y = this->get_parameter("max_y").as_double();
-  double min_z = this->get_parameter("min_z").as_double();
-  double max_z = this->get_parameter("max_z").as_double();
-
-  marker.pose.position.x = (min_x + max_x) / 2.0;
-  marker.pose.position.y = (min_y + max_y) / 2.0;
-  marker.pose.position.z = (min_z + max_z) / 2.0;
+  marker.pose.position.x = (params_.min_x + params_.max_x) / 2.0;
+  marker.pose.position.y = (params_.min_y + params_.max_y) / 2.0;
+  marker.pose.position.z = (params_.min_z + params_.max_z) / 2.0;
   marker.pose.orientation.w = 1.0;
 
-  marker.scale.x = max_x - min_x;
-  marker.scale.y = max_y - min_y;
-  marker.scale.z = max_z - min_z;
+  marker.scale.x = params_.max_x - params_.min_x;
+  marker.scale.y = params_.max_y - params_.min_y;
+  marker.scale.z = params_.max_z - params_.min_z;
 
   marker.color.r = 0.0;
   marker.color.g = 0.0;
@@ -331,11 +313,6 @@ visualization_msgs::msg::Marker BallDetector::create_detection_area_marker(const
 void BallDetector::publish_clusters(const std::vector<VoxelCluster>& clusters) {
     visualization_msgs::msg::MarkerArray marker_array;
 
-    // パラメータの取得
-    double min_x = this->get_parameter("min_x").as_double();
-    double min_y = this->get_parameter("min_y").as_double();
-    double min_z = this->get_parameter("min_z").as_double();
-
     for (size_t i = 0; i < clusters.size(); ++i) {
         VoxelCluster cluster = clusters[i];
 
@@ -346,9 +323,9 @@ void BallDetector::publish_clusters(const std::vector<VoxelCluster>& clusters) {
             sum_y += voxel.y;
             sum_z += voxel.z;
         }
-        double center_x = min_x + (sum_x / cluster.voxels.size() + 0.5) * VOXEL_SIZE_X;
-        double center_y = min_y + (sum_y / cluster.voxels.size() + 0.5) * VOXEL_SIZE_Y;
-        double center_z = min_z + (sum_z / cluster.voxels.size() + 0.5) * VOXEL_SIZE_Z;
+        double center_x = params_.min_x + (sum_x / cluster.voxels.size() + 0.5) * params_.voxel_size_x;
+        double center_y = params_.min_y + (sum_y / cluster.voxels.size() + 0.5) * params_.voxel_size_y;
+        double center_z = params_.min_z + (sum_z / cluster.voxels.size() + 0.5) * params_.voxel_size_z;
 
         // マーカーの作成
         visualization_msgs::msg::Marker marker;
@@ -364,9 +341,9 @@ void BallDetector::publish_clusters(const std::vector<VoxelCluster>& clusters) {
         marker.pose.orientation.w = 1.0;
 
         // マーカーのスケール（例：ボクセルサイズと同じ）
-        marker.scale.x = VOXEL_SIZE_X;
-        marker.scale.y = VOXEL_SIZE_Y;
-        marker.scale.z = VOXEL_SIZE_Z;
+        marker.scale.x = params_.voxel_size_x;
+        marker.scale.y = params_.voxel_size_y;
+        marker.scale.z = params_.voxel_size_z;
 
         // マーカーの色
         marker.color.r = 1.0f;
@@ -389,14 +366,11 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
   // 実行時間計測開始
   auto start = std::chrono::steady_clock::now();
   std::unordered_map<std::string, Voxel> occupied_voxels;
-  double min_x = this->get_parameter("min_x").as_double();
-  double min_y = this->get_parameter("min_y").as_double();
-  double min_z = this->get_parameter("min_z").as_double();
   // ボクセルの占有をマップに記録
   for (const auto& point : points) {
-    int vx = static_cast<int>((point.x - min_x) / VOXEL_SIZE_X);
-    int vy = static_cast<int>((point.y - min_y) / VOXEL_SIZE_Y);
-    int vz = static_cast<int>((point.z - min_z) / VOXEL_SIZE_Z);
+    int vx = static_cast<int>((point.x - params_.min_x) / params_.voxel_size_x);
+    int vy = static_cast<int>((point.y - params_.min_y) / params_.voxel_size_y);
+    int vz = static_cast<int>((point.z - params_.min_z) / params_.voxel_size_z);
     std::string key = std::to_string(vx) + "," + std::to_string(vy) + "," + std::to_string(vz);
     RCLCPP_DEBUG(this->get_logger(), "key: %s", key.c_str());
     if (occupied_voxels.find(key) == occupied_voxels.end()) {

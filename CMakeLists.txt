@@ -19,6 +19,12 @@ target_compile_features(ball_detector PUBLIC c_std_99 cxx_std_17)
 
 ament_target_dependencies(ball_detector rclcpp sensor_msgs geometry_msgs visualization_msgs)
 
+install(DIRECTORY
+  config
+  launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
 install(TARGETS ball_detector
   DESTINATION lib/${PROJECT_NAME})
 
