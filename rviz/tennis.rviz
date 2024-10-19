@@ -70,7 +70,7 @@ Visualization Manager:
       Position Transformer: XYZ
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.004999999888241291
+      Size (m): 0.019999999552965164
       Style: Flat Squares
       Topic:
         Depth: 5
@@ -111,7 +111,7 @@ Visualization Manager:
       Enabled: true
       Name: MarkerArray
       Namespaces:
-        voxel_markers: true
+        voxel_cluster_markers: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -172,18 +172,18 @@ Visualization Manager:
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.964767575263977
-        Y: -0.6663352251052856
-        Z: 1.5238124132156372
+        X: -1.2268972396850586
+        Y: 0.08071810007095337
+        Z: 1.342470407485962
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3153989613056183
+      Pitch: 0.19039899110794067
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.3154079914093018
+      Yaw: 3.150409698486328
     Saved: ~
 Window Geometry:
   Displays:
