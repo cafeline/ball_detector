@@ -54,7 +54,7 @@ private:
   std::vector<Voxel> create_voxel(const std::vector<Point3D> &points);
   std::vector<VoxelCluster> create_voxel_clustering(const std::vector<Point3D> &points);
   visualization_msgs::msg::MarkerArray create_voxel_markers(const std::vector<Voxel> &voxels, const std_msgs::msg::Header &header);
-  visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters, const std_msgs::msg::Header &header);
+  visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters);
   visualization_msgs::msg::Marker create_detection_area_marker(const std_msgs::msg::Header &header);
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
@@ -71,5 +71,8 @@ private:
   };
   Parameters params_;
 
+  std::vector<Point3D> remove_clustered_points(const std::vector<Point3D>& original_points, const std::vector<VoxelCluster>& clusters);
 
+  // クラスタリングされた点群を保持するメンバー変数
+  std::vector<Point3D> clustered_points_;
 };
