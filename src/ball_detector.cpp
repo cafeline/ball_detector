@@ -44,19 +44,21 @@ void BallDetector::load_parameters()
 void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
   RCLCPP_INFO(this->get_logger(), "***********************************************");
-
   std::vector<Point3D> points = PC2_to_vector(*msg);
   RCLCPP_INFO(this->get_logger(), "Received point cloud with %zu points", points.size());
 
   std::vector<Point3D> filtered_points = filter_points(points);
   RCLCPP_INFO(this->get_logger(), "Filtered point cloud to %zu points", filtered_points.size());
 
+  auto start_time = std::chrono::high_resolution_clock::now();
   std::vector<VoxelCluster> clusters = create_voxel_clustering(filtered_points);
   RCLCPP_INFO(this->get_logger(), "Found %zu clusters", clusters.size());
 
   std::vector<Point3D> remaining_points = remove_clustered_points(filtered_points, clusters);
   RCLCPP_INFO(this->get_logger(), "Remaining points after clustering: %zu", remaining_points.size());
-
+  auto end_time = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+  RCLCPP_INFO(this->get_logger(), "Time taken for clustering: %ld ms", duration.count());
   clustered_points_ = std::move(remaining_points);
 
   visualization_msgs::msg::MarkerArray marker_array = create_voxel_cluster_markers(clusters);
@@ -350,7 +352,7 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
     int vz = static_cast<int>((point.z - params_.min_z) / params_.voxel_size_z);
     std::string key = std::to_string(vx) + "," + std::to_string(vy) + "," + std::to_string(vz);
     RCLCPP_DEBUG(this->get_logger(), "key: %s", key.c_str());
-    if (occupied_voxels.find(key) == occupied_voxels.end())
+    if (occupied_voxels.find(key) == occupied_voxels.end()) // 未登録のボクセルを追加
     {
       occupied_voxels[key] = Voxel(vx, vy, vz);
     }
@@ -379,11 +381,11 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
       // 現在のボクセルの隣接ボクセルを探索
       int cx, cy, cz;
       sscanf(current_key.c_str(), "%d,%d,%d", &cx, &cy, &cz);
-      for (int dx = -1; dx <= 1; ++dx)
+      for (int dx = -2; dx <= 2; ++dx)
       {
-        for (int dy = -1; dy <= 1; ++dy)
+        for (int dy = -2; dy <= 2; ++dy)
         {
-          for (int dz = -1; dz <= 1; ++dz)
+          for (int dz = -2; dz <= 2; ++dz)
           {
             if (dx == 0 && dy == 0 && dz == 0)
             {
@@ -394,8 +396,7 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
             int nz = cz + dz;
             std::string neighbor_key = std::to_string(nx) + "," + std::to_string(ny) + "," + std::to_string(nz);
             // 隣接ボクセルが占有されており、未訪問の場合
-            if (occupied_voxels.find(neighbor_key) != occupied_voxels.end() &&
-                visited.find(neighbor_key) == visited.end())
+            if (occupied_voxels.find(neighbor_key) != occupied_voxels.end() && visited.find(neighbor_key) == visited.end())
             {
               q.push(neighbor_key);
               visited[neighbor_key] = true;
@@ -414,32 +415,36 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
   return clusters;
 }
 
-std::vector<Point3D> BallDetector::remove_clustered_points(const std::vector<Point3D>& original_points, const std::vector<VoxelCluster>& clusters)
+std::vector<Point3D> BallDetector::remove_clustered_points(const std::vector<Point3D> &original_points, const std::vector<VoxelCluster> &clusters)
 {
-    std::vector<Point3D> remaining_points;
-    std::unordered_set<std::string> clustered_points;
+  std::vector<Point3D> remaining_points;
+  std::unordered_set<std::string> clustered_points;
 
-    // クラスタリングされた点をセットに追加
-    for (const auto& cluster : clusters) {
-        for (const auto& voxel : cluster.voxels) {
-            std::string key = std::to_string(voxel.x) + "," + std::to_string(voxel.y) + "," + std::to_string(voxel.z);
-            clustered_points.insert(key);
-        }
+  // クラスタリングされた点をセットに追加
+  for (const auto &cluster : clusters)
+  {
+    for (const auto &voxel : cluster.voxels)
+    {
+      std::string key = std::to_string(voxel.x) + "," + std::to_string(voxel.y) + "," + std::to_string(voxel.z);
+      clustered_points.insert(key);
     }
+  }
 
-    // クラスタリングされていない点を残りの点群に追加
-    for (const auto& point : original_points) {
-        int vx = static_cast<int>((point.x - params_.min_x) / params_.voxel_size_x);
-        int vy = static_cast<int>((point.y - params_.min_y) / params_.voxel_size_y);
-        int vz = static_cast<int>((point.z - params_.min_z) / params_.voxel_size_z);
-        std::string key = std::to_string(vx) + "," + std::to_string(vy) + "," + std::to_string(vz);
+  // クラスタリングされていない点を残りの点群に追加
+  for (const auto &point : original_points)
+  {
+    int vx = static_cast<int>((point.x - params_.min_x) / params_.voxel_size_x);
+    int vy = static_cast<int>((point.y - params_.min_y) / params_.voxel_size_y);
+    int vz = static_cast<int>((point.z - params_.min_z) / params_.voxel_size_z);
+    std::string key = std::to_string(vx) + "," + std::to_string(vy) + "," + std::to_string(vz);
 
-        if (clustered_points.find(key) == clustered_points.end()) {
-            remaining_points.push_back(point);
-        }
+    if (clustered_points.find(key) == clustered_points.end())
+    {
+      remaining_points.push_back(point);
     }
+  }
 
-    return remaining_points;
+  return remaining_points;
 }
 
 int main(int argc, char **argv)
