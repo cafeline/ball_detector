@@ -7,6 +7,10 @@
 #include <cmath>
 #include <chrono>
 #include <queue>
+#include <limits> // 追加
+
+const float BALL_RADIUS = 0.07;
+const int voxel_search_range = 3;
 
 BallDetector::BallDetector() : Node("ball_detector")
 {
@@ -357,6 +361,7 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
       occupied_voxels[key] = Voxel(vx, vy, vz);
     }
   }
+
   // クラスタリングの開始
   std::vector<VoxelCluster> clusters;
   std::unordered_map<std::string, bool> visited;
@@ -367,25 +372,28 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
     {
       continue; // 既に訪問済み
     }
+
     // 新しいクラスタの開始
     VoxelCluster cluster;
     std::queue<std::string> q;
     q.push(key);
     visited[key] = true;
+
     while (!q.empty())
     {
       std::string current_key = q.front();
       q.pop();
       // 現在のボクセルをクラスタに追加
       cluster.voxels.push_back(occupied_voxels[current_key]);
+
       // 現在のボクセルの隣接ボクセルを探索
       int cx, cy, cz;
       sscanf(current_key.c_str(), "%d,%d,%d", &cx, &cy, &cz);
-      for (int dx = -2; dx <= 2; ++dx)
+      for (int dx = -voxel_search_range; dx <= voxel_search_range; ++dx) // 隣接範囲を-1から1に変更
       {
-        for (int dy = -2; dy <= 2; ++dy)
+        for (int dy = -voxel_search_range; dy <= voxel_search_range; ++dy)
         {
-          for (int dz = -2; dz <= 2; ++dz)
+          for (int dz = -voxel_search_range; dz <= voxel_search_range; ++dz)
           {
             if (dx == 0 && dy == 0 && dz == 0)
             {
@@ -405,10 +413,56 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
         }
       }
     }
-    // クラスタが存在する場合に追加
+
+    // クラスタ内の点群のサイズを評価
     if (!cluster.voxels.empty())
     {
-      clusters.push_back(cluster);
+      // クラスタ内の点群の最小値と最大値を初期化
+      double min_x = std::numeric_limits<double>::max();
+      double max_x = std::numeric_limits<double>::lowest();
+      double min_y = std::numeric_limits<double>::max();
+      double max_y = std::numeric_limits<double>::lowest();
+      double min_z = std::numeric_limits<double>::max();
+      double max_z = std::numeric_limits<double>::lowest();
+
+      // 各ボクセルの中心位置を基に最小値と最大値を計算
+      for (const auto &voxel : cluster.voxels)
+      {
+        double voxel_x = params_.min_x + (voxel.x + 0.5) * params_.voxel_size_x;
+        double voxel_y = params_.min_y + (voxel.y + 0.5) * params_.voxel_size_y;
+        double voxel_z = params_.min_z + (voxel.z + 0.5) * params_.voxel_size_z;
+
+        if (voxel_x < min_x)
+          min_x = voxel_x;
+        if (voxel_x > max_x)
+          max_x = voxel_x;
+        if (voxel_y < min_y)
+          min_y = voxel_y;
+        if (voxel_y > max_y)
+          max_y = voxel_y;
+        if (voxel_z < min_z)
+          min_z = voxel_z;
+        if (voxel_z > max_z)
+          max_z = voxel_z;
+      }
+
+      // 各軸のサイズを計算
+      double size_x = max_x - min_x;
+      double size_y = max_y - min_y;
+      double size_z = max_z - min_z;
+
+      // 最も大きいサイズを取得
+      double max_size = std::max({size_x, size_y, size_z});
+
+      // ボールの直径（10cm）以内の場合のみクラスタとして保持
+      if (max_size <= 2 * BALL_RADIUS)
+      {
+        clusters.push_back(cluster);
+      }
+      else
+      {
+        RCLCPP_INFO(this->get_logger(), "クラスタのサイズが大きいため削除されました: %f m", max_size);
+      }
     }
   }
 
