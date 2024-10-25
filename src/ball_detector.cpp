@@ -7,9 +7,9 @@
 #include <cmath>
 #include <chrono>
 #include <queue>
-#include <limits> // 追加
+#include <limits>
 
-const float BALL_RADIUS = 0.07;
+const float BALL_RADIUS = 0.05;
 const int voxel_search_range = 3;
 
 BallDetector::BallDetector() : Node("ball_detector")
@@ -17,6 +17,7 @@ BallDetector::BallDetector() : Node("ball_detector")
   subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       "/livox/lidar", 10, std::bind(&BallDetector::pointcloud_callback, this, std::placeholders::_1));
   marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("occupied_voxels", 10);
+  ball_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("ball", 10);
   filtered_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("filtered_pointcloud", 10);
   detection_area_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("bounding_box_marker", 10);
 
@@ -49,17 +50,12 @@ void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Shar
 {
   RCLCPP_INFO(this->get_logger(), "***********************************************");
   std::vector<Point3D> points = PC2_to_vector(*msg);
-  RCLCPP_INFO(this->get_logger(), "Received point cloud with %zu points", points.size());
-
   std::vector<Point3D> filtered_points = filter_points(points);
-  RCLCPP_INFO(this->get_logger(), "Filtered point cloud to %zu points", filtered_points.size());
 
   auto start_time = std::chrono::high_resolution_clock::now();
   std::vector<VoxelCluster> clusters = create_voxel_clustering(filtered_points);
-  RCLCPP_INFO(this->get_logger(), "Found %zu clusters", clusters.size());
 
   std::vector<Point3D> remaining_points = remove_clustered_points(filtered_points, clusters);
-  RCLCPP_INFO(this->get_logger(), "Remaining points after clustering: %zu", remaining_points.size());
   auto end_time = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
   RCLCPP_INFO(this->get_logger(), "Time taken for clustering: %ld ms", duration.count());
@@ -71,6 +67,18 @@ void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Shar
 
   sensor_msgs::msg::PointCloud2 remaining_cloud = vector_to_PC2(clustered_points_);
   filtered_cloud_publisher_->publish(remaining_cloud);
+
+  // 重心を計算
+  RCLCPP_INFO(this->get_logger(), "clustered_points_.size(): %zu", clustered_points_.size());
+  Point3D centroid = calculate_centroid(clustered_points_);
+
+  // マーカーを作成
+  visualization_msgs::msg::Marker centroid_marker = create_ball_marker(centroid, remaining_cloud.header);
+
+  // マーカーをパブリッシュ
+  visualization_msgs::msg::MarkerArray ball_marker_array;
+  ball_marker_array.markers.push_back(centroid_marker);
+  ball_publisher_->publish(ball_marker_array);
 }
 
 std::vector<Point3D> BallDetector::PC2_to_vector(const sensor_msgs::msg::PointCloud2 &cloud_msg)
@@ -204,7 +212,7 @@ std::vector<Voxel> BallDetector::create_voxel(const std::vector<Point3D> &points
     int vz = static_cast<int>((point.z - params_.min_z) / params_.voxel_size_z);
     std::string key = std::to_string(vx) + "," + std::to_string(vy) + "," + std::to_string(vz);
     if (occupied_voxels.find(key) == occupied_voxels.end())
-    { // キーがマップ内に存在しない場合、新しいVoxelをマップに追加
+    { // キがマップ内に存在しない場合、新しいVoxelをマップに追加
       occupied_voxels[key] = Voxel(vx, vy, vz);
     }
   }
@@ -222,7 +230,6 @@ std::vector<Voxel> BallDetector::create_voxel(const std::vector<Point3D> &points
 visualization_msgs::msg::MarkerArray BallDetector::create_voxel_markers(const std::vector<Voxel> &voxels, const std_msgs::msg::Header &header)
 {
   visualization_msgs::msg::MarkerArray marker_array;
-  RCLCPP_INFO(this->get_logger(), "voxel size: %d", voxels.size());
   for (size_t i = 0; i < voxels.size(); ++i)
   {
     visualization_msgs::msg::Marker marker;
@@ -241,7 +248,6 @@ visualization_msgs::msg::MarkerArray BallDetector::create_voxel_markers(const st
     marker.pose.position.y = params_.min_y + (voxels[i].y * params_.voxel_size_y) + offset_y;
     marker.pose.position.z = params_.min_z + (voxels[i].z * params_.voxel_size_z) + offset_z;
     marker.pose.orientation.w = 1.0;
-    // RCLCPP_INFO(this->get_logger(), "params_.min_x: %f  voxels[i].x: %d, params_.voxel_size_x: %f", params_.min_x, voxels[i].x, params_.voxel_size_x);
 
     marker.scale.x = params_.voxel_size_x;
     marker.scale.y = params_.voxel_size_y;
@@ -263,7 +269,6 @@ visualization_msgs::msg::MarkerArray BallDetector::create_voxel_markers(const st
 visualization_msgs::msg::MarkerArray BallDetector::create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters)
 {
   visualization_msgs::msg::MarkerArray marker_array;
-  RCLCPP_INFO(this->get_logger(), "Number of clusters: %zu", clusters.size());
 
   // クラスタごとに異なる色を生成するためのランダムジェネレータ
   std::random_device rd;
@@ -348,7 +353,8 @@ visualization_msgs::msg::Marker BallDetector::create_detection_area_marker(const
 std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vector<Point3D> &points)
 {
   std::unordered_map<std::string, Voxel> occupied_voxels;
-  // ボクセルの占有をマップに記録
+
+  // ボクセルの占有をマップに記録し、点群数をカウント
   for (const auto &point : points)
   {
     int vx = static_cast<int>((point.x - params_.min_x) / params_.voxel_size_x);
@@ -356,15 +362,21 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
     int vz = static_cast<int>((point.z - params_.min_z) / params_.voxel_size_z);
     std::string key = std::to_string(vx) + "," + std::to_string(vy) + "," + std::to_string(vz);
     RCLCPP_DEBUG(this->get_logger(), "key: %s", key.c_str());
-    if (occupied_voxels.find(key) == occupied_voxels.end()) // 未登録のボクセルを追加
+
+    if (occupied_voxels.find(key) == occupied_voxels.end())
     {
       occupied_voxels[key] = Voxel(vx, vy, vz);
+    }
+    else
+    {
+      occupied_voxels[key].increment();
     }
   }
 
   // クラスタリングの開始
   std::vector<VoxelCluster> clusters;
   std::unordered_map<std::string, bool> visited;
+
   for (const auto &pair : occupied_voxels)
   {
     const std::string &key = pair.first;
@@ -383,13 +395,14 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
     {
       std::string current_key = q.front();
       q.pop();
+
       // 現在のボクセルをクラスタに追加
       cluster.voxels.push_back(occupied_voxels[current_key]);
 
       // 現在のボクセルの隣接ボクセルを探索
       int cx, cy, cz;
       sscanf(current_key.c_str(), "%d,%d,%d", &cx, &cy, &cz);
-      for (int dx = -voxel_search_range; dx <= voxel_search_range; ++dx) // 隣接範囲を-1から1に変更
+      for (int dx = -voxel_search_range; dx <= voxel_search_range; ++dx)
       {
         for (int dy = -voxel_search_range; dy <= voxel_search_range; ++dy)
         {
@@ -403,6 +416,7 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
             int ny = cy + dy;
             int nz = cz + dz;
             std::string neighbor_key = std::to_string(nx) + "," + std::to_string(ny) + "," + std::to_string(nz);
+
             // 隣接ボクセルが占有されており、未訪問の場合
             if (occupied_voxels.find(neighbor_key) != occupied_voxels.end() && visited.find(neighbor_key) == visited.end())
             {
@@ -414,55 +428,59 @@ std::vector<VoxelCluster> BallDetector::create_voxel_clustering(const std::vecto
       }
     }
 
-    // クラスタ内の点群のサイズを評価
-    if (!cluster.voxels.empty())
-    {
-      // クラスタ内の点群の最小値と最大値を初期化
-      double min_x = std::numeric_limits<double>::max();
-      double max_x = std::numeric_limits<double>::lowest();
-      double min_y = std::numeric_limits<double>::max();
-      double max_y = std::numeric_limits<double>::lowest();
-      double min_z = std::numeric_limits<double>::max();
-      double max_z = std::numeric_limits<double>::lowest();
+    // クラスタ内の点群のサイズを点群の座標に基づいて計算
+    double min_x = std::numeric_limits<double>::max();
+    double max_x = std::numeric_limits<double>::lowest();
+    double min_y = std::numeric_limits<double>::max();
+    double max_y = std::numeric_limits<double>::lowest();
+    double min_z = std::numeric_limits<double>::max();
+    double max_z = std::numeric_limits<double>::lowest();
 
-      // 各ボクセルの中心位置を基に最小値と最大値を計算
+    // クラスタに属する全ての点を取得
+    for (const auto &point : points)
+    {
+      // 点がクラスタのボクセル内に属しているか確認
+      bool in_cluster = false;
       for (const auto &voxel : cluster.voxels)
       {
-        double voxel_x = params_.min_x + (voxel.x + 0.5) * params_.voxel_size_x;
-        double voxel_y = params_.min_y + (voxel.y + 0.5) * params_.voxel_size_y;
-        double voxel_z = params_.min_z + (voxel.z + 0.5) * params_.voxel_size_z;
-
-        if (voxel_x < min_x)
-          min_x = voxel_x;
-        if (voxel_x > max_x)
-          max_x = voxel_x;
-        if (voxel_y < min_y)
-          min_y = voxel_y;
-        if (voxel_y > max_y)
-          max_y = voxel_y;
-        if (voxel_z < min_z)
-          min_z = voxel_z;
-        if (voxel_z > max_z)
-          max_z = voxel_z;
+        if (point.x >= params_.min_x + voxel.x * params_.voxel_size_x &&
+            point.x < params_.min_x + (voxel.x + 1) * params_.voxel_size_x &&
+            point.y >= params_.min_y + voxel.y * params_.voxel_size_y &&
+            point.y < params_.min_y + (voxel.y + 1) * params_.voxel_size_y &&
+            point.z >= params_.min_z + voxel.z * params_.voxel_size_z &&
+            point.z < params_.min_z + (voxel.z + 1) * params_.voxel_size_z)
+        {
+          in_cluster = true;
+          break;
+        }
       }
-
-      // 各軸のサイズを計算
-      double size_x = max_x - min_x;
-      double size_y = max_y - min_y;
-      double size_z = max_z - min_z;
-
-      // 最も大きいサイズを取得
-      double max_size = std::max({size_x, size_y, size_z});
-
-      // ボールの直径（10cm）以内の場合のみクラスタとして保持
-      if (max_size <= 2 * BALL_RADIUS)
+      if (in_cluster)
       {
-        clusters.push_back(cluster);
+        if (point.x < min_x)
+          min_x = point.x;
+        if (point.x > max_x)
+          max_x = point.x;
+        if (point.y < min_y)
+          min_y = point.y;
+        if (point.y > max_y)
+          max_y = point.y;
+        if (point.z < min_z)
+          min_z = point.z;
+        if (point.z > max_z)
+          max_z = point.z;
       }
-      else
-      {
-        RCLCPP_INFO(this->get_logger(), "クラスタのサイズが大きいため削除されました: %f m", max_size);
-      }
+    }
+
+    double size_x = max_x - min_x;
+    double size_y = max_y - min_y;
+    double size_z = max_z - min_z;
+
+    // クラスタの条件を評価（点群のサイズと点群数）
+    if (size_x <= 2 * BALL_RADIUS && size_y <= 2 * BALL_RADIUS && size_z <= 2 * BALL_RADIUS && cluster.voxels.size() > 1)
+    {
+      cluster.total_point_count = cluster.voxels.size(); // 合計点群数を記録
+      clusters.push_back(cluster);
+      RCLCPP_ERROR(this->get_logger(), "cluster size: %f, %f, %f, point count: %d", size_x, size_y, size_z, cluster.voxels.size());
     }
   }
 

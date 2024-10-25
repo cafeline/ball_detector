@@ -26,16 +26,24 @@ struct Region
 
 struct Voxel
 {
-  int x, y, z;
-  Voxel() : x(0), y(0), z(0) {}
-  Voxel(int x, int y, int z) : x(x), y(y), z(z) {}
+    int x, y, z;
+    int point_count; // 点群数を追加
+
+    // デフォルトコンストラクタを追加
+    Voxel() : x(0), y(0), z(0), point_count(0) {}
+
+    Voxel(int vx, int vy, int vz) : x(vx), y(vy), z(vz), point_count(1) {}
+
+    void increment()
+    {
+        point_count++;
+    }
 };
 
 struct VoxelCluster
 {
-  std::vector<Voxel> voxels;
-  Point3D centroid;
-  std::array<float, 4> color;
+    std::vector<Voxel> voxels;
+    int total_point_count; // クラスタ内の総点群数
 };
 
 class BallDetector : public rclcpp::Node
@@ -59,6 +67,7 @@ private:
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ball_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_cloud_publisher_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr detection_area_publisher_;
 
