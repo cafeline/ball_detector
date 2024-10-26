@@ -8,6 +8,7 @@
 #include <array>
 #include <visualization_msgs/msg/marker_array.hpp>
 
+// 3次元ポイント構造体
 struct Point3D
 {
   float x;
@@ -15,37 +16,47 @@ struct Point3D
   float z;
 };
 
-struct Region
-{
-  double min_x, max_x;
-  double min_y, max_y;
-  double min_z, max_z;
-  std::vector<Point3D> points;
-  std::array<float, 4> color;
-};
-
+// ボクセル構造体
 struct Voxel
 {
-    int x, y, z;
-    int point_count; // 点群数を追加
+  int x, y, z;                 // ボクセルのインデックス
+  int point_count;             // ボクセル内の点群数
+  std::vector<Point3D> points; // ボクセル内の点群データ
+  std::array<float, 4> color;  // ボクセルの色 (RGBA)
 
-    // デフォルトコンストラクタを追加
-    Voxel() : x(0), y(0), z(0), point_count(0) {}
+  // デフォルトコンストラクタ
+  Voxel() : x(0), y(0), z(0), point_count(0), color{1.0f, 1.0f, 1.0f, 1.0f} {}
 
-    Voxel(int vx, int vy, int vz) : x(vx), y(vy), z(vz), point_count(1) {}
+  // パラメータ付きコンストラクタ
+  Voxel(int vx, int vy, int vz) : x(vx), y(vy), z(vz), point_count(1), color{1.0f, 1.0f, 1.0f, 1.0f} {}
 
-    void increment()
-    {
-        point_count++;
-    }
+  // 点群数をインクリメント
+  void increment()
+  {
+    point_count++;
+  }
+
+  // 点を追加
+  void add_point(const Point3D &point)
+  {
+    points.push_back(point);
+    increment();
+  }
 };
 
+// ボクセルクラスタ構造体
 struct VoxelCluster
 {
-    std::vector<Voxel> voxels;
-    int total_point_count; // クラスタ内の総点群数
+  std::vector<Voxel> voxels;          // クラスタ内のボクセル
+  int total_point_count;              // クラスタ内の総点群数
+  std::vector<Point3D> points;        // クラスタ内の全点群データ
+  std::array<float, 4> cluster_color; // クラスタの色 (RGBA)
+
+  // デフォルトコンストラクタ
+  VoxelCluster() : total_point_count(0), cluster_color{1.0f, 0.0f, 0.0f, 1.0f} {}
 };
 
+// BallDetector クラス
 class BallDetector : public rclcpp::Node
 {
 public:
@@ -58,18 +69,17 @@ private:
   sensor_msgs::msg::PointCloud2 vector_to_PC2(const std::vector<Point3D> &points);
   std::vector<Point3D> filter_points(const std::vector<Point3D> &input);
   Point3D calculate_centroid(const std::vector<Point3D> &points);
+  Point3D calculate_cluster_centroid(const VoxelCluster &cluster);
   visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid, const std_msgs::msg::Header &header);
   std::vector<Voxel> create_voxel(const std::vector<Point3D> &points);
   std::vector<VoxelCluster> create_voxel_clustering(const std::vector<Point3D> &points);
   visualization_msgs::msg::MarkerArray create_voxel_markers(const std::vector<Voxel> &voxels, const std_msgs::msg::Header &header);
   visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters);
   visualization_msgs::msg::Marker create_detection_area_marker(const std_msgs::msg::Header &header);
-
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_publisher_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ball_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr clustered_voxel_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr ball_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_cloud_publisher_;
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr detection_area_publisher_;
 
   std::string frame_id_ = "map";
 
@@ -80,7 +90,7 @@ private:
   };
   Parameters params_;
 
-  std::vector<Point3D> remove_clustered_points(const std::vector<Point3D>& original_points, const std::vector<VoxelCluster>& clusters);
+  std::vector<Point3D> remove_clustered_points(const std::vector<Point3D> &original_points, const std::vector<VoxelCluster> &clusters);
 
   // クラスタリングされた点群を保持するメンバー変数
   std::vector<Point3D> clustered_points_;

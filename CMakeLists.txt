@@ -22,6 +22,7 @@ ament_target_dependencies(ball_detector rclcpp sensor_msgs geometry_msgs visuali
 install(DIRECTORY
   config
   launch
+  rviz
   DESTINATION share/${PROJECT_NAME}
 )
 

@@ -99,7 +99,7 @@ Visualization Manager:
       Enabled: true
       Name: MarkerArray
       Namespaces:
-        voxel_cluster_markers: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -111,13 +111,26 @@ Visualization Manager:
       Enabled: true
       Name: MarkerArray
       Namespaces:
-        ball_detector: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /ball
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Marker
+      Namespaces:
+        "": true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /tennis_ball
       Value: true
   Enabled: true
   Global Options:
