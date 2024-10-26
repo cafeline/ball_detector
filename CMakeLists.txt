@@ -11,7 +11,10 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
-add_executable(ball_detector src/ball_detector.cpp)
+add_executable(ball_detector
+src/ball_detector.cpp
+src/clustering.cpp
+)
 target_include_directories(ball_detector PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
