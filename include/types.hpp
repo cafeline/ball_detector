@@ -1,0 +1,59 @@
+#pragma once
+
+#include <vector>
+#include <array>
+
+// 3次元ポイント構造体
+struct Point3D
+{
+  float x;
+  float y;
+  float z;
+};
+
+// ボクセル構造体
+struct Voxel
+{
+  int x, y, z;                 // ボクセルのインデックス
+  int point_count;             // ボクセル内の点群数
+  std::vector<Point3D> points; // ボクセル内の点群データ
+  std::array<float, 4> color;  // ボクセルの色 (RGBA)
+
+  // デフォルトコンストラクタ
+  Voxel() : x(0), y(0), z(0), point_count(0), color{1.0f, 1.0f, 1.0f, 1.0f} {}
+
+  // パラメータ付きコンストラクタ
+  Voxel(int vx, int vy, int vz) : x(vx), y(vy), z(vz), point_count(1), color{1.0f, 1.0f, 1.0f, 1.0f} {}
+
+  // 点群数をインクリメント
+  void increment()
+  {
+    point_count++;
+  }
+
+  // 点を追加
+  void add_point(const Point3D &point)
+  {
+    points.push_back(point);
+    increment();
+  }
+};
+
+// ボクセルクラスタ構造体
+struct VoxelCluster
+{
+  std::vector<Voxel> voxels;          // クラスタ内のボクセル
+  int total_point_count;              // クラスタ内の総点群数
+  std::vector<Point3D> points;        // クラスタ内の全点群データ
+  std::array<float, 4> cluster_color; // クラスタの色 (RGBA)
+
+  // デフォルトコンストラクタ
+  VoxelCluster() : total_point_count(0), cluster_color{1.0f, 0.0f, 0.0f, 1.0f} {}
+};
+
+// パラメータ構造体
+struct Parameters
+{
+  double min_x, max_x, min_y, max_y, min_z, max_z;
+  double voxel_size_x, voxel_size_y, voxel_size_z;
+};
