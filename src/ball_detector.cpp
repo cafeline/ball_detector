@@ -72,22 +72,19 @@ void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Shar
   // 残りの点群をPointCloud2形式に変換してパブリッシュ
   sensor_msgs::msg::PointCloud2 remaining_cloud = vector_to_PC2(clustered_points_);
   filtered_cloud_publisher_->publish(remaining_cloud);
-  RCLCPP_INFO(this->get_logger(), "5");
   // クラスタごとの重心を計算しマーカーを作成
   VoxelCluster ball_cluster;
-  RCLCPP_INFO(this->get_logger(), "clusters.size(): %zu", clusters.size());
   for (const auto &cluster : clusters)
   {
     for (const auto &point : cluster.points)
     {
-      RCLCPP_DEBUG(this->get_logger(), "point.x: %f, point.y: %f, point.z: %f", point.x, point.y, point.z);
       ball_cluster.points.push_back(point);
     }
   }
-  RCLCPP_INFO(this->get_logger(), "ball_cluster.points.size(): %zu", ball_cluster.points.size());
 
   if (!ball_cluster.points.empty())
   {
+    RCLCPP_INFO(this->get_logger(), "ball_cluster.points.size(): %zu", ball_cluster.points.size());
     // セントロイドを計算
     Point3D centroid = calculate_cluster_centroid(ball_cluster);
 
@@ -97,7 +94,7 @@ void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Shar
   }
   else
   {
-    RCLCPP_WARN(this->get_logger(), "ball_cluster に点が存在しません。マーカーをパブリッシュしません。");
+    RCLCPP_WARN(this->get_logger(), "Not exist ball_cluster");
   }
 }
 
