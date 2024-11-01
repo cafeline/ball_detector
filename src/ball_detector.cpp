@@ -12,6 +12,12 @@ BallDetector::BallDetector() : Node("ball_detector")
   ball_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("tennis_ball", 10);
   filtered_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("filtered_pointcloud", 10);
 
+  // 追加: Trajectoryパブリッシャーの初期化
+  trajectory_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("ball_trajectory", 10);
+
+  // 過去の検出点用パブリッシャーの初期化
+  past_points_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("past_ball_points", 10);
+
   load_parameters();
 
   // VoxelProcessor と Clustering の初期化
@@ -88,9 +94,31 @@ void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Shar
     // セントロイドを計算
     Point3D centroid = calculate_cluster_centroid(ball_cluster);
 
+    // 軌道コンテナに追加
+    if (trajectory_points_.size() >= MAX_TRAJECTORY_POINTS)
+    {
+      trajectory_points_.pop_front(); // 古いポイントを削除
+    }
+    trajectory_points_.push_back(centroid);
+
+    // 過去の検出点コンテナに追加
+    if (past_points_.size() >= MAX_PAST_POINTS)
+    {
+      past_points_.pop_front(); // 古いポイントを削除
+    }
+    past_points_.push_back(centroid);
+
     // マーカーを作成してパブリッシュ
     visualization_msgs::msg::Marker centroid_marker = create_ball_marker(centroid, remaining_cloud.header);
     ball_publisher_->publish(centroid_marker);
+
+    // 軌道マーカーを作成してパブリッシュ
+    visualization_msgs::msg::Marker trajectory_marker = create_trajectory_marker(trajectory_points_, remaining_cloud.header);
+    trajectory_publisher_->publish(trajectory_marker);
+
+    // 過去の検出点マーカーを作成してパブリッシュ
+    visualization_msgs::msg::Marker past_points_marker = create_past_points_marker(past_points_, remaining_cloud.header);
+    past_points_publisher_->publish(past_points_marker);
   }
   else
   {
@@ -235,7 +263,7 @@ visualization_msgs::msg::MarkerArray BallDetector::create_voxel_markers(const st
     marker.type = visualization_msgs::msg::Marker::CUBE;
     marker.action = visualization_msgs::msg::Marker::ADD;
 
-    // ボクセルの中心へのオフセットを計算 (ボクセルの左下前→中心)
+    // ボクセルの中へのオフセットを計算 (ボクセルの左下前→中心)
     double offset_x = params_.voxel_size_x / 2.0;
     double offset_y = params_.voxel_size_y / 2.0;
     double offset_z = params_.voxel_size_z / 2.0;
@@ -379,6 +407,76 @@ std::vector<Point3D> BallDetector::remove_clustered_points(const std::vector<Poi
 void BallDetector::collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points)
 {
   clustering_->collect_cluster_points(cluster, points);
+}
+
+visualization_msgs::msg::Marker BallDetector::create_trajectory_marker(const std::deque<Point3D> &trajectory, const std_msgs::msg::Header &header)
+{
+  visualization_msgs::msg::Marker marker;
+  marker.header = header;
+  marker.ns = "ball_trajectory";
+  marker.id = 1;
+  marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+
+  // 線の幅
+  marker.scale.x = 0.05; // 線の太さ
+
+  // 線の色
+  marker.color.r = 0.0;
+  marker.color.g = 0.0;
+  marker.color.b = 1.0; // 青色
+  marker.color.a = 1.0; // 完全不透明
+
+  // ライフタイムを0に設定して永続的に表示
+  marker.lifetime = rclcpp::Duration(0, 0);
+
+  // ポイントを追加
+  for (const auto &point : trajectory)
+  {
+    geometry_msgs::msg::Point geom_point;
+    geom_point.x = point.x;
+    geom_point.y = point.y;
+    geom_point.z = point.z;
+    marker.points.push_back(geom_point);
+  }
+
+  return marker;
+}
+
+visualization_msgs::msg::Marker BallDetector::create_past_points_marker(const std::deque<Point3D> &past_points, const std_msgs::msg::Header &header)
+{
+  visualization_msgs::msg::Marker marker;
+  marker.header = header;
+  marker.ns = "past_ball_points";
+  marker.id = 2;
+  marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+
+  // 各点のスケール
+  marker.scale.x = 0.05; // ボールの点の半径
+  marker.scale.y = 0.05;
+  marker.scale.z = 0.05;
+
+  // ボールの点の色
+  marker.color.r = 0.0;
+  marker.color.g = 1.0;
+  marker.color.b = 0.0; // 緑色
+  marker.color.a = 1.0; // 完全不透明
+
+  // ライフタイムを0に設定して永続的に表示
+  marker.lifetime = rclcpp::Duration(0, 0);
+
+  // 過去の検出点を追加
+  for (const auto &point : past_points)
+  {
+    geometry_msgs::msg::Point geom_point;
+    geom_point.x = point.x;
+    geom_point.y = point.y;
+    geom_point.z = point.z;
+    marker.points.push_back(geom_point);
+  }
+
+  return marker;
 }
 
 int main(int argc, char **argv)

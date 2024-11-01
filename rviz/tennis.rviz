@@ -132,6 +132,32 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /tennis_ball
       Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Marker
+      Namespaces:
+        ball_trajectory: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /ball_trajectory
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Marker
+      Namespaces:
+        past_ball_points: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /past_ball_points
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -178,25 +204,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 2.6743595600128174
+      Distance: 0.9630552530288696
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -1.2268972396850586
-        Y: 0.08071810007095337
-        Z: 1.342470407485962
+        X: 0.30230599641799927
+        Y: 1.2073640823364258
+        Z: 1.2014683485031128
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2253989577293396
+      Pitch: 0.25539878010749817
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.8954062461853027
+      Yaw: 2.480405330657959
     Saved: ~
 Window Geometry:
   Displays:
