@@ -3,12 +3,15 @@
 #include <unordered_set>
 #include <random>  // これを追加
 
-const int VOXEL_SEARCH_RANGE = 1;
+const int VOXEL_SEARCH_RANGE = 2;
 
 BallDetector::BallDetector() : Node("ball_detector")
 {
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
   subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      "/livox/lidar", 10, std::bind(&BallDetector::pointcloud_callback, this, std::placeholders::_1));
+      "/camera/camera/depth/color/points", 10, std::bind(&BallDetector::pointcloud_callback, this, std::placeholders::_1));
   ball_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("tennis_ball", 10);
   filtered_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("filtered_pointcloud", 10);
 
@@ -17,6 +20,7 @@ BallDetector::BallDetector() : Node("ball_detector")
 
   // 過去の検出点用パブリッシャーの初期化
   past_points_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("past_ball_points", 10);
+  clustered_voxel_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("clustered_voxel", 10);
 
   load_parameters();
 
@@ -36,6 +40,10 @@ void BallDetector::load_parameters()
   this->declare_parameter("voxel_size_x", 0.1);
   this->declare_parameter("voxel_size_y", 0.1);
   this->declare_parameter("voxel_size_z", 0.1);
+  this->declare_parameter("D_voxel_size_x", 0.05);
+  this->declare_parameter("D_voxel_size_y", 0.05);
+  this->declare_parameter("D_voxel_size_z", 0.05);
+
   params_.min_x = this->get_parameter("min_x").as_double();
   params_.max_x = this->get_parameter("max_x").as_double();
   params_.min_y = this->get_parameter("min_y").as_double();
@@ -45,38 +53,70 @@ void BallDetector::load_parameters()
   params_.voxel_size_x = this->get_parameter("voxel_size_x").as_double();
   params_.voxel_size_y = this->get_parameter("voxel_size_y").as_double();
   params_.voxel_size_z = this->get_parameter("voxel_size_z").as_double();
+  params_.D_voxel_size_x = this->get_parameter("D_voxel_size_x").as_double();
+  params_.D_voxel_size_y = this->get_parameter("D_voxel_size_y").as_double();
+  params_.D_voxel_size_z = this->get_parameter("D_voxel_size_z").as_double();
+}
+
+sensor_msgs::msg::PointCloud2 BallDetector::transform_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+  std::string target_frame = "camera_link";
+  sensor_msgs::msg::PointCloud2 transformed_cloud;
+  try
+  {
+    tf_buffer_->transform(*msg, transformed_cloud, target_frame, std::chrono::milliseconds(100));
+  }
+  catch (tf2::TransformException &ex)
+  {
+    RCLCPP_WARN(this->get_logger(), "Transform failed: %s", ex.what());
+    exit(1);
+  }
+  return transformed_cloud;
 }
 
 void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
   RCLCPP_INFO(this->get_logger(), "***********************************************");
-  std::vector<Point3D> points = PC2_to_vector(*msg);
-  std::vector<Point3D> filtered_points = filter_points(points);
-
   auto start_time = std::chrono::high_resolution_clock::now();
 
-  // ボクセル化の実行
+  // sensor_msgs::msg::PointCloud2 transformed_cloud = transform_pointcloud(msg);
+
+  std::vector<Point3D> points = PC2_to_vector(*msg);
+  std::vector<Point3D> filtered_points = filter_points(points);
+  RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_time).count());
+
+  // ボクセルフィルタによるダウンサンプリング
+  float voxel_size_x = params_.D_voxel_size_x;
+  float voxel_size_y = params_.D_voxel_size_y;
+  float voxel_size_z = params_.D_voxel_size_z;
+  std::vector<Point3D> downsampled_points = voxel_downsample(filtered_points, voxel_size_x, voxel_size_y, voxel_size_z);
+
+  // // ボクセル化の実行
   std::vector<Voxel> voxels = voxel_processor_->create_voxel(filtered_points);
 
-  // クラスタリングの実行
+  // // クラスタリングの実行
   std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(filtered_points, voxels);
 
-  // クラスタ化された点群の除去
+  // // クラスタ化された点群の除去
   std::vector<Point3D> remaining_points = remove_clustered_points(filtered_points, clusters);
+  RCLCPP_INFO(this->get_logger(), "remaining_points.size(): %zu", remaining_points.size());
+  RCLCPP_INFO(this->get_logger(), "filtered_points.size(): %zu", filtered_points.size());
+  RCLCPP_INFO(this->get_logger(), "clusters.size(): %zu", clusters.size());
 
-  auto end_time = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-  RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms", duration.count());
 
-  // 残りの点群を更新
+  // // 残りの点群を更新
   clustered_points_ = std::move(remaining_points);
 
-  // クラスタのマーカーを作成してパブリッシュ
-  visualization_msgs::msg::MarkerArray voxel_marker_array = create_voxel_cluster_markers(clusters);
-  // clustered_voxel_publisher_->publish(voxel_marker_array);
+  // // クラスタのマーカーを作成してパブリッシュ
+  if (!clusters.empty())
+  {
+    visualization_msgs::msg::MarkerArray voxel_marker_array = create_voxel_cluster_markers(clusters);
+    clustered_voxel_publisher_->publish(voxel_marker_array);
+  }
 
   // 残りの点群をPointCloud2形式に変換してパブリッシュ
-  sensor_msgs::msg::PointCloud2 remaining_cloud = vector_to_PC2(clustered_points_);
+  sensor_msgs::msg::PointCloud2 remaining_cloud = vector_to_PC2(filtered_points);
+  // sensor_msgs::msg::PointCloud2 remaining_cloud = vector_to_PC2(clustered_points_);
   filtered_cloud_publisher_->publish(remaining_cloud);
   // クラスタごとの重心を計算しマーカーを作成
   VoxelCluster ball_cluster;
@@ -124,6 +164,44 @@ void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Shar
   {
     RCLCPP_WARN(this->get_logger(), "Not exist ball_cluster");
   }
+}
+
+std::vector<Point3D> BallDetector::voxel_downsample(const std::vector<Point3D> &input, float voxel_size_x, float voxel_size_y, float voxel_size_z)
+{
+  std::unordered_map<std::string, std::vector<Point3D>> voxel_map;
+  std::vector<Point3D> downsampled_points;
+
+  for (const auto &point : input)
+  {
+    int voxel_x = static_cast<int>(std::floor(point.x / voxel_size_x));
+    int voxel_y = static_cast<int>(std::floor(point.y / voxel_size_y));
+    int voxel_z = static_cast<int>(std::floor(point.z / voxel_size_z));
+    std::string key = std::to_string(voxel_x) + "_" + std::to_string(voxel_y) + "_" + std::to_string(voxel_z);
+    voxel_map[key].push_back(point);
+  }
+
+  for (const auto &voxel : voxel_map)
+  {
+    const auto &points = voxel.second;
+    if (points.size() < 4)
+      continue;
+
+    float sum_x = 0.0f, sum_y = 0.0f, sum_z = 0.0f;
+    for (const auto &p : points)
+    {
+      sum_x += p.x;
+      sum_y += p.y;
+      sum_z += p.z;
+    }
+
+    Point3D centroid;
+    centroid.x = sum_x / points.size();
+    centroid.y = sum_y / points.size();
+    centroid.z = sum_z / points.size();
+    downsampled_points.push_back(centroid);
+  }
+
+  return downsampled_points;
 }
 
 std::vector<Point3D> BallDetector::PC2_to_vector(const sensor_msgs::msg::PointCloud2 &cloud_msg)

@@ -10,6 +10,9 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include "clustering.hpp"
 #include "types.hpp"
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 
 // BallDetector クラス
 class BallDetector : public rclcpp::Node
@@ -23,6 +26,7 @@ private:
   std::vector<Point3D> PC2_to_vector(const sensor_msgs::msg::PointCloud2 &cloud_msg);
   sensor_msgs::msg::PointCloud2 vector_to_PC2(const std::vector<Point3D> &points);
   std::vector<Point3D> filter_points(const std::vector<Point3D> &input);
+  std::vector<Point3D> voxel_downsample(const std::vector<Point3D> &input, float voxel_size_x, float voxel_size_y, float voxel_size_z);
   Point3D calculate_centroid(const std::vector<Point3D> &points);
   Point3D calculate_cluster_centroid(const VoxelCluster &cluster);
   visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid, const std_msgs::msg::Header &header);
@@ -39,7 +43,7 @@ private:
   // 新たに追加された関数
   std::vector<Point3D> remove_clustered_points(const std::vector<Point3D> &original_points, const std::vector<VoxelCluster> &clusters);
   void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
-
+  sensor_msgs::msg::PointCloud2 transform_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
   // メンバー変数
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr clustered_voxel_publisher_;
@@ -69,4 +73,8 @@ private:
   // VoxelProcessor と Clustering のインスタンス
   std::unique_ptr<VoxelProcessor> voxel_processor_;
   std::unique_ptr<Clustering> clustering_;
+
+  // tf2関連のメンバー変数
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 };

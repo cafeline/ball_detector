@@ -5,7 +5,7 @@
 #include <limits>
 #include <random>
 #include <string>
-const float BALL_RADIUS = 0.05;
+const float BALL_RADIUS = 0.1;
 
 VoxelProcessor::VoxelProcessor(const Parameters &params) : params_(params)
 {

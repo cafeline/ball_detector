@@ -56,4 +56,5 @@ struct Parameters
 {
   double min_x, max_x, min_y, max_y, min_z, max_z;
   double voxel_size_x, voxel_size_y, voxel_size_z;
+  double D_voxel_size_x, D_voxel_size_y, D_voxel_size_z;
 };
