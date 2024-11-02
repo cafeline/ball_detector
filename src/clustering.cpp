@@ -5,7 +5,6 @@
 #include <limits>
 #include <random>
 #include <string>
-const float BALL_RADIUS = 0.1;
 
 VoxelProcessor::VoxelProcessor(const Parameters &params) : params_(params)
 {
@@ -40,8 +39,8 @@ std::vector<Voxel> VoxelProcessor::create_voxel(const std::vector<Point3D> &poin
   return result;
 }
 
-Clustering::Clustering(const Parameters &params, int search_range)
-    : params_(params), voxel_search_range_(search_range)
+Clustering::Clustering(const Parameters &params)
+    : params_(params)
 {
 }
 
@@ -100,11 +99,11 @@ std::vector<std::string> Clustering::get_adjacent_voxels(const std::string &key)
   int cx, cy, cz;
   sscanf(key.c_str(), "%d,%d,%d", &cx, &cy, &cz);
   std::vector<std::string> neighbors;
-  for (int dx = -voxel_search_range_; dx <= voxel_search_range_; ++dx)
+  for (int dx = -params_.voxel_search_range; dx <= params_.voxel_search_range; ++dx)
   {
-    for (int dy = -voxel_search_range_; dy <= voxel_search_range_; ++dy)
+    for (int dy = -params_.voxel_search_range; dy <= params_.voxel_search_range; ++dy)
     {
-      for (int dz = -voxel_search_range_; dz <= voxel_search_range_; ++dz)
+      for (int dz = -params_.voxel_search_range; dz <= params_.voxel_search_range; ++dz)
       {
         if (dx == 0 && dy == 0 && dz == 0)
           continue;
@@ -119,7 +118,7 @@ bool Clustering::is_valid_cluster(const VoxelCluster &cluster, const std::vector
 {
   double size_x, size_y, size_z;
   calculate_cluster_size(cluster, points, size_x, size_y, size_z);
-  return size_x <= 2 * BALL_RADIUS && size_y <= 2 * BALL_RADIUS && size_z <= 2 * BALL_RADIUS && cluster.voxels.size() > 1;
+  return size_x <= 2 * params_.ball_radius && size_y <= 2 * params_.ball_radius && size_z <= 2 * params_.ball_radius && points.size() >= 3;
 }
 
 void Clustering::calculate_cluster_size(const VoxelCluster &cluster, const std::vector<Point3D> &points,

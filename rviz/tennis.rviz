@@ -86,7 +86,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -112,7 +112,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        past_ball_points: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -167,25 +167,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 1.9493238925933838
+      Distance: 7.750659942626953
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.09468613564968109
-        Y: 0.11072132736444473
-        Z: 1.7105995416641235
+        X: 2.9682953357696533
+        Y: 0.15364253520965576
+        Z: -0.6744725704193115
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: -1.189796805381775
+      Pitch: 0.17520233988761902
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.505428314208984
+      Yaw: 3.4704201221466064
     Saved: ~
 Window Geometry:
   Displays:

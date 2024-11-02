@@ -21,7 +21,7 @@ private:
 class Clustering
 {
 public:
-  Clustering(const Parameters &params, int search_range);
+  Clustering(const Parameters &params);
 
   // ボクセルクラスタリングを作成する関数
   std::vector<VoxelCluster> create_voxel_clustering(const std::vector<Point3D> &points, const std::vector<Voxel> &voxels);
@@ -31,7 +31,6 @@ public:
 
 private:
   Parameters params_;
-  int voxel_search_range_;
 
   // 隣接ボクセルのキーを取得するヘルパー関数
   std::vector<std::string> get_adjacent_voxels(const std::string &key) const;

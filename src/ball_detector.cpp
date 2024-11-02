@@ -1,9 +1,8 @@
 #include "ball_detector.hpp"
 #include <chrono>
 #include <unordered_set>
-#include <random>  // これを追加
+#include <random>
 
-const int VOXEL_SEARCH_RANGE = 2;
 
 BallDetector::BallDetector() : Node("ball_detector")
 {
@@ -15,18 +14,15 @@ BallDetector::BallDetector() : Node("ball_detector")
   ball_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("tennis_ball", 10);
   filtered_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("filtered_pointcloud", 10);
 
-  // 追加: Trajectoryパブリッシャーの初期化
   trajectory_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("ball_trajectory", 10);
 
-  // 過去の検出点用パブリッシャーの初期化
   past_points_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("past_ball_points", 10);
   clustered_voxel_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("clustered_voxel", 10);
 
   load_parameters();
 
-  // VoxelProcessor と Clustering の初期化
   voxel_processor_ = std::make_unique<VoxelProcessor>(params_);
-  clustering_ = std::make_unique<Clustering>(params_, VOXEL_SEARCH_RANGE);
+  clustering_ = std::make_unique<Clustering>(params_);
 }
 
 void BallDetector::load_parameters()
@@ -43,6 +39,8 @@ void BallDetector::load_parameters()
   this->declare_parameter("D_voxel_size_x", 0.05);
   this->declare_parameter("D_voxel_size_y", 0.05);
   this->declare_parameter("D_voxel_size_z", 0.05);
+  this->declare_parameter("voxel_search_range", 3);
+  this->declare_parameter("ball_radius", 0.1);
 
   params_.min_x = this->get_parameter("min_x").as_double();
   params_.max_x = this->get_parameter("max_x").as_double();
@@ -56,69 +54,136 @@ void BallDetector::load_parameters()
   params_.D_voxel_size_x = this->get_parameter("D_voxel_size_x").as_double();
   params_.D_voxel_size_y = this->get_parameter("D_voxel_size_y").as_double();
   params_.D_voxel_size_z = this->get_parameter("D_voxel_size_z").as_double();
-}
-
-sensor_msgs::msg::PointCloud2 BallDetector::transform_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-{
-  std::string target_frame = "camera_link";
-  sensor_msgs::msg::PointCloud2 transformed_cloud;
-  try
-  {
-    tf_buffer_->transform(*msg, transformed_cloud, target_frame, std::chrono::milliseconds(100));
-  }
-  catch (tf2::TransformException &ex)
-  {
-    RCLCPP_WARN(this->get_logger(), "Transform failed: %s", ex.what());
-    exit(1);
-  }
-  return transformed_cloud;
+  params_.voxel_search_range = this->get_parameter("voxel_search_range").as_int();
+  params_.ball_radius = this->get_parameter("ball_radius").as_double();
 }
 
 void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
   RCLCPP_INFO(this->get_logger(), "***********************************************");
-  auto start_time = std::chrono::high_resolution_clock::now();
 
-  // sensor_msgs::msg::PointCloud2 transformed_cloud = transform_pointcloud(msg);
 
   std::vector<Point3D> points = PC2_to_vector(*msg);
-  std::vector<Point3D> filtered_points = filter_points(points);
+  auto start_time = std::chrono::high_resolution_clock::now();
+  std::vector<Point3D> transformed_points = axis_image2robot(points);
   RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_time).count());
 
-  // ボクセルフィルタによるダウンサンプリング
-  float voxel_size_x = params_.D_voxel_size_x;
-  float voxel_size_y = params_.D_voxel_size_y;
-  float voxel_size_z = params_.D_voxel_size_z;
-  std::vector<Point3D> downsampled_points = voxel_downsample(filtered_points, voxel_size_x, voxel_size_y, voxel_size_z);
+  std::vector<Point3D> filtered_points = filter_points(transformed_points);
+  std::vector<Point3D> downsampled_points = voxel_downsample(filtered_points);
 
-  // // ボクセル化の実行
-  std::vector<Voxel> voxels = voxel_processor_->create_voxel(filtered_points);
+  // 点群処理の分割
+  std::vector<VoxelCluster> clusters = process_pointcloud(filtered_points, downsampled_points);
 
-  // // クラスタリングの実行
-  std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(filtered_points, voxels);
+  // 残りの点群をPointCloud2形式に変換してパブリッシュ
+  sensor_msgs::msg::PointCloud2 remaining_cloud = vector_to_PC2(filtered_points);
+  filtered_cloud_publisher_->publish(remaining_cloud);
 
-  // // クラスタ化された点群の除去
-  std::vector<Point3D> remaining_points = remove_clustered_points(filtered_points, clusters);
-  RCLCPP_INFO(this->get_logger(), "remaining_points.size(): %zu", remaining_points.size());
-  RCLCPP_INFO(this->get_logger(), "filtered_points.size(): %zu", filtered_points.size());
-  RCLCPP_INFO(this->get_logger(), "clusters.size(): %zu", clusters.size());
+  // マーカーのパブリッシュ
+  publish_markers(clusters, remaining_cloud);
 
+  // 軌道と過去の検出点の更新
+  update_trajectory(clusters, remaining_cloud);
+}
 
-  // // 残りの点群を更新
+std::vector<Point3D> BallDetector::axis_image2robot(const std::vector<Point3D> &input)
+{
+  std::vector<Point3D> swapped;
+  swapped.reserve(input.size());
+
+  for (const auto &point : input)
+  {
+    Point3D swapped_point;
+    swapped_point.x = point.z;
+    swapped_point.y = point.x;
+    swapped_point.z = -point.y;
+    swapped.push_back(swapped_point);
+  }
+
+  return swapped;
+}
+
+std::vector<VoxelCluster> BallDetector::process_pointcloud(const std::vector<Point3D> &filtered_points, const std::vector<Point3D> &downsampled_points)
+{
+  // ボクセル化の実行
+  std::vector<Voxel> voxels = voxel_processor_->create_voxel(downsampled_points);
+
+  // クラスタリングの実行
+  std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(downsampled_points, voxels);
+
+  // クラスタ化された点群の除去
+  std::vector<Point3D> remaining_points = remove_clustered_points(downsampled_points, clusters);
+
+  // 残りの点群を更新
   clustered_points_ = std::move(remaining_points);
 
-  // // クラスタのマーカーを作成してパブリッシュ
+  return clusters;
+}
+
+void BallDetector::publish_markers(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
+{
+  // クラスタのマーカーを作成してパブリッシュ
   if (!clusters.empty())
   {
     visualization_msgs::msg::MarkerArray voxel_marker_array = create_voxel_cluster_markers(clusters);
     clustered_voxel_publisher_->publish(voxel_marker_array);
   }
 
-  // 残りの点群をPointCloud2形式に変換してパブリッシュ
-  sensor_msgs::msg::PointCloud2 remaining_cloud = vector_to_PC2(filtered_points);
-  // sensor_msgs::msg::PointCloud2 remaining_cloud = vector_to_PC2(clustered_points_);
-  filtered_cloud_publisher_->publish(remaining_cloud);
-  // クラスタごとの重心を計算しマーカーを作成
+  // 各クラスタ内で x 座標が最も小さい点を見つける
+  for (const auto &cluster : clusters)
+  {
+    if (cluster.points.empty())
+    {
+      continue;
+    }
+
+    // 最小 x 座標を持つ点を検索
+    const Point3D *min_x_point = &cluster.points[0];
+    for (const auto &point : cluster.points)
+    {
+      if (point.x < min_x_point->x)
+      {
+        min_x_point = &point;
+      }
+    }
+
+    // マーカーを作成してパブリッシュ
+    visualization_msgs::msg::Marker marker = create_custom_marker(*min_x_point, remaining_cloud.header);
+    ball_publisher_->publish(marker);
+  }
+}
+
+visualization_msgs::msg::Marker BallDetector::create_custom_marker(const Point3D &point, const std_msgs::msg::Header &header)
+{
+  visualization_msgs::msg::Marker marker;
+  marker.header = header;
+  marker.ns = "min_x_points";
+  marker.id = static_cast<int>(point.x * 1000); // 一意のIDを設定（例: x座標を基に）
+  marker.type = visualization_msgs::msg::Marker::SPHERE;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+
+  // 点の位置を設定
+  marker.pose.position.x = point.x;
+  marker.pose.position.y = point.y;
+  marker.pose.position.z = point.z;
+
+  // マーカーのスケールを設定
+  marker.scale.x = 0.05;
+  marker.scale.y = 0.05;
+  marker.scale.z = 0.05;
+
+  // マーカーの色を設定 (例: 青色)
+  marker.color.r = 0.0;
+  marker.color.g = 0.0;
+  marker.color.b = 1.0;
+  marker.color.a = 1.0;
+
+  // ライフタイムを0に設定して永続的に表示
+  marker.lifetime = rclcpp::Duration(0, 0);
+
+  return marker;
+}
+void BallDetector::update_trajectory(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
+{
   VoxelCluster ball_cluster;
   for (const auto &cluster : clusters)
   {
@@ -130,52 +195,42 @@ void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Shar
 
   if (!ball_cluster.points.empty())
   {
-    RCLCPP_INFO(this->get_logger(), "ball_cluster.points.size(): %zu", ball_cluster.points.size());
-    // セントロイドを計算
     Point3D centroid = calculate_cluster_centroid(ball_cluster);
 
     // 軌道コンテナに追加
-    if (trajectory_points_.size() >= MAX_TRAJECTORY_POINTS)
+    const size_t MAX_TRAJECTORY_POINTS = 200; // 最大保持ポイント数
+    if (ball_trajectory_points_.size() >= MAX_TRAJECTORY_POINTS)
     {
-      trajectory_points_.pop_front(); // 古いポイントを削除
+      ball_trajectory_points_.pop_front(); // 古いポイントを削除
     }
-    trajectory_points_.push_back(centroid);
+    ball_trajectory_points_.push_back(centroid);
 
     // 過去の検出点コンテナに追加
+    const size_t MAX_PAST_POINTS = 200; // 最大保持過去点数
     if (past_points_.size() >= MAX_PAST_POINTS)
     {
       past_points_.pop_front(); // 古いポイントを削除
     }
     past_points_.push_back(centroid);
 
-    // マーカーを作成してパブリッシュ
-    visualization_msgs::msg::Marker centroid_marker = create_ball_marker(centroid, remaining_cloud.header);
-    ball_publisher_->publish(centroid_marker);
-
-    // 軌道マーカーを作成してパブリッシュ
-    visualization_msgs::msg::Marker trajectory_marker = create_trajectory_marker(trajectory_points_, remaining_cloud.header);
+    // それぞれPublish
+    visualization_msgs::msg::Marker trajectory_marker = create_trajectory_marker(ball_trajectory_points_, remaining_cloud.header);
     trajectory_publisher_->publish(trajectory_marker);
-
-    // 過去の検出点マーカーを作成してパブリッシュ
     visualization_msgs::msg::Marker past_points_marker = create_past_points_marker(past_points_, remaining_cloud.header);
     past_points_publisher_->publish(past_points_marker);
   }
-  else
-  {
-    RCLCPP_WARN(this->get_logger(), "Not exist ball_cluster");
-  }
 }
 
-std::vector<Point3D> BallDetector::voxel_downsample(const std::vector<Point3D> &input, float voxel_size_x, float voxel_size_y, float voxel_size_z)
+std::vector<Point3D> BallDetector::voxel_downsample(const std::vector<Point3D> &input)
 {
   std::unordered_map<std::string, std::vector<Point3D>> voxel_map;
   std::vector<Point3D> downsampled_points;
 
   for (const auto &point : input)
   {
-    int voxel_x = static_cast<int>(std::floor(point.x / voxel_size_x));
-    int voxel_y = static_cast<int>(std::floor(point.y / voxel_size_y));
-    int voxel_z = static_cast<int>(std::floor(point.z / voxel_size_z));
+    int voxel_x = static_cast<int>(std::floor(point.x / params_.D_voxel_size_x));
+    int voxel_y = static_cast<int>(std::floor(point.y / params_.D_voxel_size_y));
+    int voxel_z = static_cast<int>(std::floor(point.z / params_.D_voxel_size_z));
     std::string key = std::to_string(voxel_x) + "_" + std::to_string(voxel_y) + "_" + std::to_string(voxel_z);
     voxel_map[key].push_back(point);
   }
