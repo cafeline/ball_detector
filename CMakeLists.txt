@@ -16,4 +16,8 @@ ament_auto_add_executable(ball_detector
   src/clustering.cpp
 )
 
-ament_auto_package()
+ament_auto_package(INSTALL_TO_SHARE
+  launch
+  config
+  rviz
+)
