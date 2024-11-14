@@ -41,6 +41,8 @@ private:
   void update_trajectory(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
   std::vector<Point3D> axis_image2robot(const std::vector<Point3D> &input);
   visualization_msgs::msg::Marker create_custom_marker(const Point3D &point, const std_msgs::msg::Header &header);
+  void detect_human(const std::vector<Point3D> &points);
+
   // メンバー変数
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr clustered_voxel_publisher_;
@@ -48,7 +50,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_cloud_publisher_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr trajectory_publisher_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr past_points_publisher_;
-
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr human_publisher_;
   std::string frame_id_ = "map";
 
   Parameters params_;

@@ -18,6 +18,7 @@ BallDetector::BallDetector() : Node("ball_detector")
 
   past_points_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("past_ball_points", 10);
   clustered_voxel_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("clustered_voxel", 10);
+  human_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("human_marker", 10);
 
   load_parameters();
 
@@ -66,10 +67,11 @@ void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Shar
   std::vector<Point3D> points = PC2_to_vector(*msg);
   auto start_time = std::chrono::high_resolution_clock::now();
   std::vector<Point3D> transformed_points = axis_image2robot(points);
-  RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_time).count());
 
   std::vector<Point3D> filtered_points = filter_points(transformed_points);
   std::vector<Point3D> downsampled_points = voxel_downsample(filtered_points);
+  detect_human(downsampled_points);
+  RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_time).count());
 
   // 点群処理の分割
   std::vector<VoxelCluster> clusters = process_pointcloud(filtered_points, downsampled_points);
@@ -83,6 +85,30 @@ void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Shar
 
   // 軌道と過去の検出点の更新
   update_trajectory(clusters, remaining_cloud);
+}
+
+// 追加: detect_human メソッドの実装
+void BallDetector::detect_human(const std::vector<Point3D> &points)
+{
+  RCLCPP_INFO(this->get_logger(), "0");
+  // ボクセルサイズと探索範囲の設定
+  double voxel_size_x = 0.5;
+  double min_z = 0.5;
+  double max_z = 1.0;
+  double min_y = params_.min_y;
+  double max_y = params_.max_y;
+  std::vector<Point3D> human_points;
+  for (const auto &point : points)
+  {
+    if (point.z >= min_z && point.z <= max_z)
+    {
+      human_points.push_back(point);
+      RCLCPP_INFO(this->get_logger(), "#########human#########");
+    }
+  }
+  // human_pointsでボクセル化　クラスタリング　コートの中心に一番近いクラスタを人として認識
+  std::vector<Voxel> human_voxels = voxel_processor_->create_voxel(human_points);
+  RCLCPP_INFO(this->get_logger(), "human_voxels.size(): %ld", human_voxels.size());
 }
 
 std::vector<Point3D> BallDetector::axis_image2robot(const std::vector<Point3D> &input)
