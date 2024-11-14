@@ -1,8 +1,8 @@
 #include "ball_detector.hpp"
+#include "pointcloud_processor/pointcloud_processor.hpp"
 #include <chrono>
 #include <unordered_set>
 #include <random>
-
 
 BallDetector::BallDetector() : Node("ball_detector")
 {
@@ -63,21 +63,24 @@ void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Shar
 {
   RCLCPP_INFO(this->get_logger(), "***********************************************");
 
-
-  std::vector<Point3D> points = PC2_to_vector(*msg);
   auto start_time = std::chrono::high_resolution_clock::now();
-  std::vector<Point3D> transformed_points = axis_image2robot(points);
 
-  std::vector<Point3D> filtered_points = filter_points(transformed_points);
-  std::vector<Point3D> downsampled_points = voxel_downsample(filtered_points);
+  // 外部ライブラリを使用して点群処理を実行
+  PointCloudProcessor processor(params_);
+  std::vector<Point3D> processed_points = processor.process_pointcloud(*msg);
+  std::vector<Point3D> downsampled_points = processor.get_downsampled_points();
+
   detect_human(downsampled_points);
-  RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_time).count());
+
+  RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms",
+             std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::high_resolution_clock::now() - start_time).count());
 
   // 点群処理の分割
-  std::vector<VoxelCluster> clusters = process_pointcloud(filtered_points, downsampled_points);
+  std::vector<VoxelCluster> clusters = process_pointcloud(processed_points, downsampled_points);
 
   // 残りの点群をPointCloud2形式に変換してパブリッシュ
-  sensor_msgs::msg::PointCloud2 remaining_cloud = vector_to_PC2(filtered_points);
+  sensor_msgs::msg::PointCloud2 remaining_cloud = processor.vector_to_PC2(processed_points);
   filtered_cloud_publisher_->publish(remaining_cloud);
 
   // マーカーのパブリッシュ

@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 #include <queue>
-#include "types.hpp"
+#include "pointcloud_processor/types.hpp"
 
 // クラスタリング処理に関連する関数と構造体を定義するヘッダーファイル
 class VoxelProcessor
