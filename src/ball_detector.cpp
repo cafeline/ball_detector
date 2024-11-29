@@ -6,11 +6,8 @@
 
 BallDetector::BallDetector() : Node("ball_detector")
 {
-  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-
   subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      "/camera/camera/depth/color/points", 10, std::bind(&BallDetector::pointcloud_callback, this, std::placeholders::_1));
+      "/livox/lidar", 10, std::bind(&BallDetector::pointcloud_callback, this, std::placeholders::_1));
   ball_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("tennis_ball", 10);
   filtered_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("filtered_pointcloud", 10);
 

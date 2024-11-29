@@ -9,9 +9,6 @@
 #include <array>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include "clustering.hpp"
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 #include "pointcloud_processor/types.hpp"
 class BallDetector : public rclcpp::Node
 {
@@ -62,7 +59,4 @@ private:
   std::unique_ptr<VoxelProcessor> voxel_processor_;
   std::unique_ptr<Clustering> clustering_;
 
-  // tf2関連のメンバー変数
-  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 };
