@@ -11,13 +11,12 @@ endif()
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
-ament_auto_add_executable(ball_detector
+ament_auto_add_library(ball_detector
   src/ball_detector.cpp
   src/clustering.cpp
 )
 
-ament_auto_package(INSTALL_TO_SHARE
-  launch
-  config
-  rviz
-)
+ament_export_include_directories(include)
+ament_export_libraries(ball_detector)
+
+ament_auto_package(INSTALL_TO_SHARE)
