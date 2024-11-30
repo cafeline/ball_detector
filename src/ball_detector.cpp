@@ -3,6 +3,7 @@
 #include <chrono>
 #include <unordered_set>
 #include <random>
+#include <cmath>
 
 namespace ball_detector
 {
@@ -13,11 +14,12 @@ namespace ball_detector
   {
     subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/livox/lidar", 10, std::bind(&BallDetector::pointcloud_callback, this, std::placeholders::_1));
+    pose_subscription_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        "/laser_pose", 10, std::bind(&BallDetector::pose_callback, this, std::placeholders::_1));
+
     ball_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("tennis_ball", 10);
     filtered_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("filtered_pointcloud", 10);
-
     trajectory_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("ball_trajectory", 10);
-
     past_points_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("past_ball_points", 10);
     clustered_voxel_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("clustered_voxel", 10);
     human_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("human_marker", 10);
@@ -58,21 +60,21 @@ namespace ball_detector
 
   void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
-    RCLCPP_INFO(this->get_logger(), "***********************************************");
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // 外部ライブラリを使用して点群処理を実行
     PointCloudProcessor processor(params_);
     std::vector<Point3D> tmp_points = processor.PC2_to_vector(*msg);
-    std::vector<Point3D> processed_points = processor.filter_points(tmp_points);
+    std::vector<Point3D> tmp_points_base_origin = processor.filter_points_base_origin(self_pose_.x, self_pose_.y, self_pose_.z, tmp_points);
+    std::vector<Point3D> processed_points = processor.transform_pointcloud(self_pose_.x, self_pose_.y, self_pose_.z, tmp_points_base_origin);
 
     // detect_human(processed_points);
 
-    RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms",
-                std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::high_resolution_clock::now() - start_time)
-                    .count());
+    // RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms",
+    //             std::chrono::duration_cast<std::chrono::milliseconds>(
+    //                 std::chrono::high_resolution_clock::now() - start_time)
+    //                 .count());
 
     // 点群処理の分割
     std::vector<VoxelCluster> clusters = process_clustering(processed_points);
@@ -86,6 +88,21 @@ namespace ball_detector
 
     // 軌道と過去の検出点の更新
     update_trajectory(clusters, remaining_cloud);
+  }
+
+  void BallDetector::pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+  {
+    double w = msg->pose.orientation.w;
+    double x = msg->pose.orientation.x;
+    double y = msg->pose.orientation.y;
+    double z = msg->pose.orientation.z;
+    // ヨー角の算出
+    double siny_cosp = 2.0 * (w * z + x * y);
+    double cosy_cosp = 1.0 - 2.0 * (y * y + z * z);
+    double yaw = std::atan2(siny_cosp, cosy_cosp);
+    self_pose_.x = msg->pose.position.x;
+    self_pose_.y = msg->pose.position.y;
+    self_pose_.z = yaw;
   }
 
   // 追加: detect_human メソッドの実装

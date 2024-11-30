@@ -11,6 +11,7 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <array>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include "ball_detector/clustering.hpp"
 #include "pointcloud_processor/types.hpp"
 
@@ -27,6 +28,8 @@ namespace ball_detector
   private:
     void load_parameters();
     void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+
     std::vector<Point3D> PC2_to_vector(const sensor_msgs::msg::PointCloud2 &cloud_msg);
     std::vector<Point3D> filter_points(const std::vector<Point3D> &input);
     std::vector<Point3D> voxel_downsample(const std::vector<Point3D> &input);
@@ -49,6 +52,8 @@ namespace ball_detector
 
     // メンバー変数
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_subscription_;
+
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr clustered_voxel_publisher_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr ball_publisher_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_cloud_publisher_;
@@ -67,6 +72,7 @@ namespace ball_detector
     std::unique_ptr<VoxelProcessor> voxel_processor_;
     std::unique_ptr<Clustering> clustering_;
 
+    Point3D self_pose_;
   };
 }
 #endif // BALL_DETECTOR_HPP
