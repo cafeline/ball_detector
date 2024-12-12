@@ -14,7 +14,7 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include "ball_detector/clustering.hpp"
 #include "pointcloud_processor/types.hpp"
-
+#include <std_msgs/msg/bool.hpp>
 namespace ball_detector
 {
   class BallDetector : public rclcpp::Node
@@ -29,6 +29,7 @@ namespace ball_detector
     void load_parameters();
     void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+    void autonomous_callback(const std_msgs::msg::Bool::SharedPtr msg);
 
     std::vector<Point3D> PC2_to_vector(const sensor_msgs::msg::PointCloud2 &cloud_msg);
     std::vector<Point3D> filter_points(const std::vector<Point3D> &input);
@@ -53,6 +54,7 @@ namespace ball_detector
     // メンバー変数
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_subscription_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr autonomous_subscription_;
 
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr clustered_voxel_publisher_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr ball_publisher_;
@@ -74,6 +76,8 @@ namespace ball_detector
 
     Point3D self_pose_;
     double livox_pitch_=0.0;
+
+    bool is_autonomous = false;
   };
 }
 #endif // BALL_DETECTOR_HPP

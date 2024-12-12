@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Status1
         - /PointCloud21
+        - /Marker5
       Splitter Ratio: 0.5
     Tree Height: 719
   - Class: rviz_common/Selection
@@ -132,20 +133,20 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /human_marker
+        Value: /fitted_curve
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true
       Name: Marker
       Namespaces:
-        fitted_curve: true
+        original_points: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /fitted_curve
+        Value: /fitted_points
       Value: true
   Enabled: true
   Global Options:
@@ -193,25 +194,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 8.637105941772461
+      Distance: 9.758577346801758
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.9682953357696533
-        Y: 0.15364253520965576
-        Z: -0.6744725704193115
+        X: 1.8166143894195557
+        Y: 1.9814966917037964
+        Z: 0.22220174968242645
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.17520233988761902
+      Pitch: 0.3702021837234497
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.4704201221466064
+      Yaw: 3.995424270629883
     Saved: ~
 Window Geometry:
   Displays:

@@ -16,6 +16,8 @@ namespace ball_detector
         "/livox/lidar", 10, std::bind(&BallDetector::pointcloud_callback, this, std::placeholders::_1));
     pose_subscription_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
         "/laser_pose", 10, std::bind(&BallDetector::pose_callback, this, std::placeholders::_1));
+    autonomous_subscription_ = this->create_subscription<std_msgs::msg::Bool>(
+        "/autonomous", 10, std::bind(&BallDetector::autonomous_callback, this, std::placeholders::_1));
 
     ball_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("tennis_ball", 10);
     filtered_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("filtered_pointcloud", 10);
@@ -61,7 +63,8 @@ namespace ball_detector
 
   void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
-
+    if(!is_autonomous)
+      return;
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // 外部ライブラリを使用して点群処理を実行
@@ -107,8 +110,14 @@ namespace ball_detector
     self_pose_.z = yaw;
   }
 
-  // 追加: detect_human メソッドの実装
-  void BallDetector::detect_human(const std::vector<Point3D> &points)
+  void BallDetector::autonomous_callback(const std_msgs::msg::Bool::SharedPtr msg)
+  {
+    is_autonomous = msg->data;
+    RCLCPP_INFO(this->get_logger(), "自動：%d", is_autonomous);
+  }
+
+      // 追加: detect_human メソッドの実装
+      void BallDetector::detect_human(const std::vector<Point3D> &points)
   {
     RCLCPP_INFO(this->get_logger(), "0");
     // ボクセルサイズと探索範囲の設定
