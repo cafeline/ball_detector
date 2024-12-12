@@ -51,6 +51,7 @@ namespace ball_detector
     params_.max_y = this->get_parameter("max_y").as_double();
     params_.min_z = this->get_parameter("min_z").as_double();
     params_.max_z = this->get_parameter("max_z").as_double();
+    livox_pitch_ = this->get_parameter("livox_pitch").as_double();
     params_.voxel_size_x = this->get_parameter("voxel_size_x").as_double();
     params_.voxel_size_y = this->get_parameter("voxel_size_y").as_double();
     params_.voxel_size_z = this->get_parameter("voxel_size_z").as_double();
@@ -67,7 +68,8 @@ namespace ball_detector
     PointCloudProcessor processor(params_);
     std::vector<Point3D> tmp_points = processor.PC2_to_vector(*msg);
     std::vector<Point3D> tmp_points_base_origin = processor.filter_points_base_origin(self_pose_.x, self_pose_.y, self_pose_.z, tmp_points);
-    std::vector<Point3D> processed_points = processor.transform_pointcloud(self_pose_.x, self_pose_.y, self_pose_.z, tmp_points_base_origin);
+    std::vector<Point3D> tmp_points_transformed = processor.transform_pointcloud(self_pose_.x, self_pose_.y, self_pose_.z, tmp_points_base_origin);
+    std::vector<Point3D> processed_points = processor.rotate_pitch(tmp_points_transformed, livox_pitch_);
 
     // detect_human(processed_points);
 

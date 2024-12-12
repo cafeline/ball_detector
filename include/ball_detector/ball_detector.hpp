@@ -73,6 +73,7 @@ namespace ball_detector
     std::unique_ptr<Clustering> clustering_;
 
     Point3D self_pose_;
+    double livox_pitch_=0.0;
   };
 }
 #endif // BALL_DETECTOR_HPP
