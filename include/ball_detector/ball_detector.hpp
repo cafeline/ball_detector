@@ -61,7 +61,6 @@ namespace ball_detector
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_cloud_publisher_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr trajectory_publisher_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr past_points_publisher_;
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr human_publisher_;
     std::string frame_id_ = "map";
 
     Parameters params_;

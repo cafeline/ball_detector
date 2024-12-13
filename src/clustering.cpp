@@ -6,9 +6,7 @@
 #include <random>
 #include <string>
 
-VoxelProcessor::VoxelProcessor(const Parameters &params) : params_(params)
-{
-}
+VoxelProcessor::VoxelProcessor(const Parameters &params) : params_(params){}
 
 std::vector<Voxel> VoxelProcessor::create_voxel(const std::vector<Point3D> &points)
 {
@@ -39,10 +37,7 @@ std::vector<Voxel> VoxelProcessor::create_voxel(const std::vector<Point3D> &poin
   return result;
 }
 
-Clustering::Clustering(const Parameters &params)
-    : params_(params)
-{
-}
+Clustering::Clustering(const Parameters &params): params_(params){}
 
 std::vector<VoxelCluster> Clustering::create_voxel_clustering(const std::vector<Point3D> &points, const std::vector<Voxel> &voxels)
 {
