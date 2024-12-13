@@ -62,7 +62,7 @@ namespace ball_detector
 
   void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
-    if(!is_autonomous)
+    if (!is_autonomous)
       return;
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -72,7 +72,6 @@ namespace ball_detector
     std::vector<Point3D> tmp_points_base_origin = processor.filter_points_base_origin(self_pose_.x, self_pose_.y, self_pose_.z, tmp_points);
     std::vector<Point3D> tmp_points_transformed = processor.transform_pointcloud(self_pose_.x, self_pose_.y, self_pose_.z, tmp_points_base_origin);
     std::vector<Point3D> processed_points = processor.rotate_pitch(tmp_points_transformed, livox_pitch_);
-
 
     // RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms",
     //             std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -87,6 +86,7 @@ namespace ball_detector
     filtered_cloud_publisher_->publish(remaining_cloud);
 
     // マーカーのパブリッシュ
+    RCLCPP_INFO(this->get_logger(), "clusters.size(): %ld", clusters.size());
     publish_markers(clusters, remaining_cloud);
 
     // 軌道と過去の検出点の更新
@@ -421,30 +421,64 @@ namespace ball_detector
   {
     visualization_msgs::msg::MarkerArray marker_array;
 
-    // クラスタごとに異なる色を生成するためのランダムジェネレータ
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<> dis(0.0, 1.0);
-
     for (size_t i = 0; i < clusters.size(); ++i)
     {
       const auto &cluster = clusters[i];
 
-      // クラスタごとにランダムな色を生成
-      float r = dis(gen);
-      float g = dis(gen);
-      float b = dis(gen);
+      // クラスタ内の点からサイズを計算
+      double min_x = std::numeric_limits<double>::max();
+      double max_x = std::numeric_limits<double>::lowest();
+      double min_y = std::numeric_limits<double>::max();
+      double max_y = std::numeric_limits<double>::lowest();
+      double min_z = std::numeric_limits<double>::max();
+      double max_z = std::numeric_limits<double>::lowest();
 
-      for (const auto &voxel : cluster.voxels)
+      for (const auto &p : cluster.points)
       {
+        if (p.x < min_x)
+          min_x = p.x;
+        if (p.x > max_x)
+          max_x = p.x;
+        if (p.y < min_y)
+          min_y = p.y;
+        if (p.y > max_y)
+          max_y = p.y;
+        if (p.z < min_z)
+          min_z = p.z;
+        if (p.z > max_z)
+          max_z = p.z;
+      }
+
+      double size_x = max_x - min_x;
+      double size_y = max_y - min_y;
+      double size_z = max_z - min_z;
+
+      // クラスタがボールサイズ以下なら緑、それ以外なら青
+      bool is_ball_cluster = (size_x <= 2 * params_.ball_radius &&
+                              size_y <= 2 * params_.ball_radius &&
+                              size_z <= 2 * params_.ball_radius);
+
+      float r = 0.0f;
+      float g = 0.0f;
+      float b = 1.0f; // デフォルト青
+      if (is_ball_cluster)
+      {
+        // ボールと判定したクラスタは緑
+        r = 0.0f;
+        g = 1.0f;
+        b = 0.0f;
+      }
+
+      for (size_t v = 0; v < cluster.voxels.size(); ++v)
+      {
+        const auto &voxel = cluster.voxels[v];
         visualization_msgs::msg::Marker marker;
         marker.header.frame_id = frame_id_;
         marker.ns = "voxel_cluster_markers";
-        marker.id = i * 1000 + marker_array.markers.size(); // ユニークなIDを生成
+        marker.id = static_cast<int>(i * 10000 + v); // ユニークなIDを生成
         marker.type = visualization_msgs::msg::Marker::CUBE;
         marker.action = visualization_msgs::msg::Marker::ADD;
 
-        // ボクセルの中心へのオフセットを計算
         double offset_x = params_.voxel_size_x / 2.0;
         double offset_y = params_.voxel_size_y / 2.0;
         double offset_z = params_.voxel_size_z / 2.0;
@@ -458,7 +492,6 @@ namespace ball_detector
         marker.scale.y = params_.voxel_size_y;
         marker.scale.z = params_.voxel_size_z;
 
-        // クラスタごとの色を設定
         marker.color.r = r;
         marker.color.g = g;
         marker.color.b = b;
@@ -472,6 +505,62 @@ namespace ball_detector
 
     return marker_array;
   }
+
+  // visualization_msgs::msg::MarkerArray BallDetector::create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters)
+  // {
+  //   visualization_msgs::msg::MarkerArray marker_array;
+
+  //   // クラスタごとに異なる色を生成するためのランダムジェネレータ
+  //   std::random_device rd;
+  //   std::mt19937 gen(rd());
+  //   std::uniform_real_distribution<> dis(0.0, 1.0);
+
+  //   for (size_t i = 0; i < clusters.size(); ++i)
+  //   {
+  //     const auto &cluster = clusters[i];
+
+  //     // クラスタごとにランダムな色を生成
+  //     float r = dis(gen);
+  //     float g = dis(gen);
+  //     float b = dis(gen);
+
+  //     for (const auto &voxel : cluster.voxels)
+  //     {
+  //       visualization_msgs::msg::Marker marker;
+  //       marker.header.frame_id = frame_id_;
+  //       marker.ns = "voxel_cluster_markers";
+  //       marker.id = i * 1000 + marker_array.markers.size(); // ユニークなIDを生成
+  //       marker.type = visualization_msgs::msg::Marker::CUBE;
+  //       marker.action = visualization_msgs::msg::Marker::ADD;
+
+  //       // ボクセルの中心へのオフセットを計算
+  //       double offset_x = params_.voxel_size_x / 2.0;
+  //       double offset_y = params_.voxel_size_y / 2.0;
+  //       double offset_z = params_.voxel_size_z / 2.0;
+
+  //       marker.pose.position.x = params_.min_x + (voxel.x * params_.voxel_size_x) + offset_x;
+  //       marker.pose.position.y = params_.min_y + (voxel.y * params_.voxel_size_y) + offset_y;
+  //       marker.pose.position.z = params_.min_z + (voxel.z * params_.voxel_size_z) + offset_z;
+  //       marker.pose.orientation.w = 1.0;
+
+  //       marker.scale.x = params_.voxel_size_x;
+  //       marker.scale.y = params_.voxel_size_y;
+  //       marker.scale.z = params_.voxel_size_z;
+
+  //       // クラスタごとの色を設定
+  //       marker.color.r = r;
+  //       marker.color.g = g;
+  //       marker.color.b = b;
+  //       marker.color.a = 0.9;
+
+  //       marker.lifetime = rclcpp::Duration(0, 1e8); // 約0.1秒
+
+  //       marker_array.markers.push_back(marker);
+  //     }
+  //   }
+
+  //   return marker_array;
+  // }
 
   visualization_msgs::msg::Marker BallDetector::create_detection_area_marker(const std_msgs::msg::Header &header)
   {
