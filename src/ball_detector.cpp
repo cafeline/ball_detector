@@ -67,6 +67,7 @@ namespace ball_detector
   {
     RCLCPP_INFO(this->get_logger(), "######### pointcloud_callback ###########");
     ball_cluster_indices_.clear();
+    dynamic_cluster_indices_.clear();
     // if (!is_autonomous)
     //   return;
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -112,7 +113,6 @@ namespace ball_detector
     auto assignments = associate_clusters(clusters, tracks_, max_distance_for_association_, current_time, dt);
 
     // 失踪したトラックを削除
-    // missing_countが3以上なら削除など
     for (auto it = tracks_.begin(); it != tracks_.end();)
     {
       if (it->second.missing_count > missing_count_threshold_)
@@ -129,6 +129,40 @@ namespace ball_detector
     std::vector<VoxelCluster> dynamic_clusters = filter_by_speed(clusters, assignments, tracks_, dt, ball_vel_min_);
 
     RCLCPP_INFO(this->get_logger(), "clusters size: %d, dynamic_clusters size: %d, tracks_ size: %d, assignments size: %d", clusters.size(), dynamic_clusters.size(), tracks_.size(), assignments.size());
+
+
+    auto cluster_centroid = [this](const VoxelCluster &c) {
+      return this->calculate_cluster_centroid(c);
+    };
+
+    auto are_centroids_close = [](const Point3D &a, const Point3D &b, double tol=1e-6) {
+      double dx = a.x - b.x;
+      double dy = a.y - b.y;
+      double dz = a.z - b.z;
+      double dist_sq = dx*dx + dy*dy + dz*dz;
+      return dist_sq < tol*tol;
+    };
+
+     RCLCPP_ERROR(this->get_logger(), "dynamic_clusters size: %d", (int)dynamic_clusters.size());
+     for (const auto &dyn_cluster : dynamic_clusters)
+     {
+      // 動的クラスタの重心を取得
+      Point3D dyn_center = cluster_centroid(dyn_cluster);
+
+       for (size_t i = 0; i < clusters.size(); i++)
+       {
+        // clusters[i] の重心を取得
+        Point3D orig_center = cluster_centroid(clusters[i]);
+        // 重心がほぼ同一であれば同じクラスタとみなす
+        if (are_centroids_close(orig_center, dyn_center))
+        {
+          RCLCPP_INFO(this->get_logger(), "Dynamic cluster matched with clusters[%d]", (int)i);
+          dynamic_cluster_indices_.insert(i);
+          break;
+        }
+      }
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // 残りの点群をPointCloud2形式に変換してパブリッシュ
@@ -284,24 +318,19 @@ namespace ball_detector
       double speed = dist / dt;
       RCLCPP_INFO(this->get_logger(), "Cluster %zu last_centroid=(%f,%f,%f)", i, last_c.x, last_c.y, last_c.z);
       RCLCPP_INFO(this->get_logger(), "Cluster %zu cur_centroid =(%f,%f,%f)", i, cur_c.x, cur_c.y, cur_c.z);
-      RCLCPP_INFO(this->get_logger(), "dx:%f, dy:%f, dz:%f, dist:%f, dt:%f, speed:%f", dx, dy, dz, dist, dt, speed);
 
       // 速度判定後、動的な場合のみ残す
       // 動的と判定した場合、ここでトラック重心を更新する
       if (speed >= speed_threshold)
       {
-        RCLCPP_INFO(this->get_logger(), "speed_threshold: %f", speed_threshold);
-        RCLCPP_INFO(this->get_logger(), "speed: %f", speed);
         result.push_back(current_clusters[i]);
         RCLCPP_INFO(this->get_logger(), "クラスタ重心更新");
-        RCLCPP_INFO(this->get_logger(), "Cluster %zu is dynamic", i);
+        RCLCPP_INFO(this->get_logger(), "speed: %f", speed);
+        RCLCPP_INFO(this->get_logger(), "speed_threshold: %f", speed_threshold);
+        RCLCPP_ERROR(this->get_logger(), "Cluster %zu is dynamic", i);
         RCLCPP_INFO(this->get_logger(), "Cluster %zu last_centroid=(%f,%f,%f)", i, last_c.x, last_c.y, last_c.z);
         RCLCPP_INFO(this->get_logger(), "Cluster %zu cur_centroid =(%f,%f,%f)", i, cur_c.x, cur_c.y, cur_c.z);
         tracks[id].last_centroid = cur_c; // 動的と判断されたトラックのみここで更新
-        RCLCPP_INFO(this->get_logger(), "クラスタ重心更新後");
-
-        RCLCPP_INFO(this->get_logger(), "Cluster %zu last_centroid=(%f,%f,%f)", id, tracks[id].last_centroid.x, tracks[id].last_centroid.y, tracks[id].last_centroid.z);
-        RCLCPP_INFO(this->get_logger(), "Cluster %zu cur_centroid =(%f,%f,%f)", i, cur_c.x, cur_c.y, cur_c.z);
       }
       else
       {
@@ -334,7 +363,6 @@ namespace ball_detector
     is_autonomous = msg->data;
     // RCLCPP_INFO(this->get_logger(), "自動：%d", is_autonomous);
   }
-
 
   void BallDetector::publish_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
   {
@@ -371,13 +399,36 @@ namespace ball_detector
     {
       const auto &cluster = all_clusters[i];
 
-      // クラスタがボールクラスタかどうか判定
-      // bool is_ball_cluster = ball_cluster_set.find(&cluster) != ball_cluster_set.end();
+      // クラスタがボールサイズかどうか
+      // -> ball_cluster_indices_に存在すればボールサイズ
+      // クラスタが動的かどうか
+      // -> dynamic_cluster_indices_に存在すれば動的
+      // 色の割り当て優先度:
+      // 1. ボールサイズかつ動的 -> 緑 (R=0, G=1, B=0)
+      // 2. ボールサイズだが動的でない -> 赤 (R=1, G=0, B=0)
+      // 3. ボールサイズでない -> 青 (R=0, G=0, B=1)
       bool is_ball_cluster = (ball_cluster_indices_.find(i) != ball_cluster_indices_.end());
+      bool is_dynamic = (dynamic_cluster_indices_.find(i) != dynamic_cluster_indices_.end());
 
-      float r = is_ball_cluster ? 1.0f : 0.0f;
-      float g = 0.0f;
-      float b = is_ball_cluster ? 0.0f : 1.0f;
+      float r, g, b;
+      if (is_ball_cluster && is_dynamic)
+      {
+        r = 0.0f;
+        g = 1.0f;
+        b = 0.0f; // 緑
+      }
+      else if (is_ball_cluster)
+      {
+        r = 1.0f;
+        g = 0.0f;
+        b = 0.0f; // 赤
+      }
+      else
+      {
+        r = 0.0f;
+        g = 0.0f;
+        b = 1.0f; // 青
+      }
 
       for (size_t v = 0; v < cluster.voxels.size(); ++v)
       {

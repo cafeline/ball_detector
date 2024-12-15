@@ -89,6 +89,7 @@ namespace ball_detector
     std::unique_ptr<VoxelProcessor> voxel_processor_;
     std::unique_ptr<Clustering> clustering_;
     std::unordered_set<size_t> ball_cluster_indices_;
+    std::unordered_set<size_t> dynamic_cluster_indices_;
 
     Point3D self_pose_;
     double livox_pitch_ = 0.0;
