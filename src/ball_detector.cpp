@@ -65,11 +65,11 @@ namespace ball_detector
 
   void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
-    RCLCPP_INFO(this->get_logger(), "######### pointcloud_callback ###########");
+    if (!is_autonomous)
+      return;
     ball_cluster_indices_.clear();
     dynamic_cluster_indices_.clear();
-    // if (!is_autonomous)
-    //   return;
+
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // 外部ライブラリを使用して点群処理を実行
@@ -249,7 +249,7 @@ namespace ball_detector
       if (best_idx >= 0)
       {
         // 対応付け成功
-        RCLCPP_INFO(this->get_logger(), "対応付け成功");
+        // RCLCPP_INFO(this->get_logger(), "対応付け成功");
         assignments[i] = track_list[best_idx]->first;
         track_used[best_idx] = true;
         track_list[best_idx]->second.last_update_time = current_time;
@@ -262,7 +262,7 @@ namespace ball_detector
     {
       if (assignments[i] < 0)
       {
-        RCLCPP_INFO(this->get_logger(), "New track");
+        // RCLCPP_INFO(this->get_logger(), "New track");
         int new_id = tracks.empty() ? 0 : tracks.rbegin()->first + 1;
         Point3D c = compute_cluster_centroid(current_clusters[i]);
         ClusterTrack new_track{new_id, c, current_time, 0};
@@ -276,7 +276,7 @@ namespace ball_detector
     {
       if (!track_used[j])
       {
-        RCLCPP_INFO(this->get_logger(), "Missing track");
+        // RCLCPP_INFO(this->get_logger(), "Missing track");
         track_list[j]->second.missing_count += 1;
       }
     }
@@ -316,20 +316,20 @@ namespace ball_detector
       double dz = cur_c.z - last_c.z;
       double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
       double speed = dist / dt;
-      RCLCPP_INFO(this->get_logger(), "Cluster %zu last_centroid=(%f,%f,%f)", i, last_c.x, last_c.y, last_c.z);
-      RCLCPP_INFO(this->get_logger(), "Cluster %zu cur_centroid =(%f,%f,%f)", i, cur_c.x, cur_c.y, cur_c.z);
+      // RCLCPP_INFO(this->get_logger(), "Cluster %zu last_centroid=(%f,%f,%f)", i, last_c.x, last_c.y, last_c.z);
+      // RCLCPP_INFO(this->get_logger(), "Cluster %zu cur_centroid =(%f,%f,%f)", i, cur_c.x, cur_c.y, cur_c.z);
 
       // 速度判定後、動的な場合のみ残す
       // 動的と判定した場合、ここでトラック重心を更新する
       if (speed >= speed_threshold)
       {
         result.push_back(current_clusters[i]);
-        RCLCPP_INFO(this->get_logger(), "クラスタ重心更新");
-        RCLCPP_INFO(this->get_logger(), "speed: %f", speed);
-        RCLCPP_INFO(this->get_logger(), "speed_threshold: %f", speed_threshold);
-        RCLCPP_ERROR(this->get_logger(), "Cluster %zu is dynamic", i);
-        RCLCPP_INFO(this->get_logger(), "Cluster %zu last_centroid=(%f,%f,%f)", i, last_c.x, last_c.y, last_c.z);
-        RCLCPP_INFO(this->get_logger(), "Cluster %zu cur_centroid =(%f,%f,%f)", i, cur_c.x, cur_c.y, cur_c.z);
+        // RCLCPP_INFO(this->get_logger(), "クラスタ重心更新");
+        // RCLCPP_INFO(this->get_logger(), "speed: %f", speed);
+        // RCLCPP_INFO(this->get_logger(), "speed_threshold: %f", speed_threshold);
+        // RCLCPP_ERROR(this->get_logger(), "Cluster %zu is dynamic", i);
+        // RCLCPP_INFO(this->get_logger(), "Cluster %zu last_centroid=(%f,%f,%f)", i, last_c.x, last_c.y, last_c.z);
+        // RCLCPP_INFO(this->get_logger(), "Cluster %zu cur_centroid =(%f,%f,%f)", i, cur_c.x, cur_c.y, cur_c.z);
         tracks[id].last_centroid = cur_c; // 動的と判断されたトラックのみここで更新
       }
       else
