@@ -26,6 +26,8 @@ public:
   std::vector<VoxelCluster> create_voxel_clustering(const std::vector<Point3D> &points, const std::vector<Voxel> &voxels);
 
   void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
+  // クラスタのサイズを計算
+  void calculate_cluster_size(const VoxelCluster &cluster, const std::vector<Point3D> &points, double &size_x, double &size_y, double &size_z) const;
 
 private:
   Parameters params_;
@@ -36,8 +38,6 @@ private:
   // クラスタの有効性を評価
   bool is_valid_cluster(const VoxelCluster &cluster, const std::vector<Point3D> &points) const;
 
-  // クラスタのサイズを計算
-  void calculate_cluster_size(const VoxelCluster &cluster, const std::vector<Point3D> &points, double &size_x, double &size_y, double &size_z) const;
 
   // 点がボクセル内に属するかをチェック
   bool point_in_voxel(const Point3D &point, const Voxel &voxel) const;

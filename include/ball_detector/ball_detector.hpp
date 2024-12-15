@@ -38,13 +38,13 @@ namespace ball_detector
     Point3D calculate_cluster_centroid(const VoxelCluster &cluster);
     visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid, const std_msgs::msg::Header &header);
     visualization_msgs::msg::MarkerArray create_voxel_markers(const std::vector<Voxel> &voxels, const std_msgs::msg::Header &header);
-    visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters);
+    visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters);
     visualization_msgs::msg::Marker create_detection_area_marker(const std_msgs::msg::Header &header);
     visualization_msgs::msg::Marker create_trajectory_marker(const std::deque<Point3D> &trajectory, const std_msgs::msg::Header &header);
     visualization_msgs::msg::Marker create_past_points_marker(const std::deque<Point3D> &past_points, const std_msgs::msg::Header &header);
     std::vector<Point3D> remove_clustered_points(const std::vector<Point3D> &original_points, const std::vector<VoxelCluster> &clusters);
     void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
-    void publish_markers(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
+    void publish_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
     void update_trajectory(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
     std::vector<Point3D> axis_image2robot(const std::vector<Point3D> &input);
     visualization_msgs::msg::Marker create_custom_marker(const Point3D &point, const std_msgs::msg::Header &header);
@@ -88,6 +88,7 @@ namespace ball_detector
     // VoxelProcessor と Clustering のインスタンス
     std::unique_ptr<VoxelProcessor> voxel_processor_;
     std::unique_ptr<Clustering> clustering_;
+    std::unordered_set<size_t> ball_cluster_indices_;
 
     Point3D self_pose_;
     double livox_pitch_ = 0.0;

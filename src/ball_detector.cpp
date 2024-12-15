@@ -61,11 +61,12 @@ namespace ball_detector
     ball_vel_min_ = this->get_parameter("ball_vel_min").as_double();
     max_distance_for_association_ = this->get_parameter("max_distance_for_association").as_double();
     missing_count_threshold_ = this->get_parameter("missing_count_threshold").as_int();
-    }
+  }
 
   void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
     RCLCPP_INFO(this->get_logger(), "######### pointcloud_callback ###########");
+    ball_cluster_indices_.clear();
     // if (!is_autonomous)
     //   return;
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -83,6 +84,24 @@ namespace ball_detector
     std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
     // クラスタリングの実行
     std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
+    std::vector<VoxelCluster> all_clusters = clusters; // すべてのクラスタを保持
+    std::vector<VoxelCluster> ball_clusters;
+
+    // ボールとして認識するクラスタのみを抽出
+    for (size_t i = 0; i < clusters.size(); i++)
+    {
+      double size_x, size_y, size_z;
+      clustering_->calculate_cluster_size(clusters[i], processed_points, size_x, size_y, size_z);
+      if (size_x <= 2 * params_.ball_radius && size_y <= 2 * params_.ball_radius && size_z <= 2 * params_.ball_radius)
+      {
+        ball_clusters.push_back(clusters[i]);
+        ball_cluster_indices_.insert(i);
+      }
+    }
+
+    // ボールクラスタの処理
+    // 例えば、以下のように ball_clusters を用いてトラッキングや可視化を行う
+
     ////////////////////////////////////////////////////////////////////////////////////////////////
     rclcpp::Time current_time = this->now();
     double dt = (previous_time_.nanoseconds() == 0) ? 0.0 : (current_time - previous_time_).seconds();
@@ -90,7 +109,7 @@ namespace ball_detector
     previous_time_ = current_time;
 
     // トラックにアソシエーション
-    auto assignments = associate_clusters(clusters, tracks_, 1.0, current_time, dt);
+    auto assignments = associate_clusters(clusters, tracks_, max_distance_for_association_, current_time, dt);
 
     // 失踪したトラックを削除
     // missing_countが3以上なら削除など
@@ -117,7 +136,7 @@ namespace ball_detector
     filtered_cloud_publisher_->publish(remaining_cloud);
 
     // マーカーのパブリッシュ
-    publish_markers(dynamic_clusters, remaining_cloud);
+    publish_markers(all_clusters, ball_clusters, remaining_cloud);
 
     // 軌道と過去の検出点の更新
     update_trajectory(dynamic_clusters, remaining_cloud);
@@ -153,49 +172,6 @@ namespace ball_detector
     centroid.z = static_cast<float>(sum_z / n);
     return centroid;
   }
-
-  // std::vector<VoxelCluster> BallDetector::filter_static_clusters(const std::vector<VoxelCluster> &current_clusters,
-  //                                                   const std::vector<Point3D> &previous_centroids,
-  //                                                   double dt,
-  //                                                   double speed_threshold)
-  // {
-  //   std::vector<VoxelCluster> filtered_clusters;
-  //   if (current_clusters.size() != previous_centroids.size() || dt <= 0.0)
-  //   {
-  //     // クラスタ数と重心数が合わない、あるいは経過時間が不正ならそのまま返す
-  //     return current_clusters;
-  //   }
-
-  //   for (size_t i = 0; i < current_clusters.size(); ++i)
-  //   {
-  //     const auto &cluster = current_clusters[i];
-  //     const auto &prev_centroid = previous_centroids[i];
-
-  //     if (cluster.points.empty())
-  //     {
-  //       // 点がないクラスタは無視
-  //       continue;
-  //     }
-
-  //     // 現在クラスタの重心を計算
-  //     Point3D current_centroid = compute_cluster_centroid(cluster);
-
-  //     // 前フレームとの重心差分から速度計算
-  //     double dx = current_centroid.x - prev_centroid.x;
-  //     double dy = current_centroid.y - prev_centroid.y;
-  //     double dz = current_centroid.z - prev_centroid.z;
-  //     double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
-  //     double speed = dist / dt;
-
-  //     // 速度閾値判定
-  //     if (speed >= speed_threshold)
-  //     {
-  //       filtered_clusters.push_back(cluster);
-  //     }
-  //   }
-
-  //   return filtered_clusters;
-  // }
 
   std::vector<int> BallDetector::associate_clusters(const std::vector<VoxelCluster> &current_clusters,
                                                     std::map<int, ClusterTrack> &tracks,
@@ -275,10 +251,10 @@ namespace ball_detector
   }
 
   std::vector<VoxelCluster> BallDetector::filter_by_speed(const std::vector<VoxelCluster> &current_clusters,
-                                                         const std::vector<int> &assignments,
-                                                         std::map<int, ClusterTrack> &tracks,
-                                                         double dt,
-                                                         double speed_threshold)
+                                                          const std::vector<int> &assignments,
+                                                          std::map<int, ClusterTrack> &tracks,
+                                                          double dt,
+                                                          double speed_threshold)
   {
     std::vector<VoxelCluster> result;
     for (size_t i = 0; i < current_clusters.size(); i++)
@@ -314,6 +290,8 @@ namespace ball_detector
       // 動的と判定した場合、ここでトラック重心を更新する
       if (speed >= speed_threshold)
       {
+        RCLCPP_INFO(this->get_logger(), "speed_threshold: %f", speed_threshold);
+        RCLCPP_INFO(this->get_logger(), "speed: %f", speed);
         result.push_back(current_clusters[i]);
         RCLCPP_INFO(this->get_logger(), "クラスタ重心更新");
         RCLCPP_INFO(this->get_logger(), "Cluster %zu is dynamic", i);
@@ -357,54 +335,85 @@ namespace ball_detector
     // RCLCPP_INFO(this->get_logger(), "自動：%d", is_autonomous);
   }
 
-  std::vector<Point3D> BallDetector::axis_image2robot(const std::vector<Point3D> &input)
+
+  void BallDetector::publish_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
   {
-    std::vector<Point3D> swapped;
-    swapped.reserve(input.size());
+    // すべてのクラスタを可視化
+    visualization_msgs::msg::MarkerArray voxel_marker_array = create_voxel_cluster_markers(all_clusters, ball_clusters);
+    clustered_voxel_publisher_->publish(voxel_marker_array);
 
-    for (const auto &point : input)
-    {
-      Point3D swapped_point;
-      swapped_point.x = point.z;
-      swapped_point.y = point.x;
-      swapped_point.z = -point.y;
-      swapped.push_back(swapped_point);
-    }
-
-    return swapped;
-  }
-
-  void BallDetector::publish_markers(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
-  {
-    // クラスタのマーカーを作成してパブリッシュ
-    if (!clusters.empty())
-    {
-      visualization_msgs::msg::MarkerArray voxel_marker_array = create_voxel_cluster_markers(clusters);
-      clustered_voxel_publisher_->publish(voxel_marker_array);
-    }
-
-    // 各クラスタ内で x 座標が最も小さい点を見つける
-    for (const auto &cluster : clusters)
+    // ボールクラスタのみをマークする場合の処理
+    for (const auto &cluster : ball_clusters)
     {
       if (cluster.points.empty())
       {
         continue;
       }
 
-      // 最小 x 座標を持つ点を検索
-      const Point3D *min_x_point = &cluster.points[0];
-      for (const auto &point : cluster.points)
-      {
-        if (point.x < min_x_point->x)
-        {
-          min_x_point = &point;
-        }
-      }
-
-      // マーカーを作成してパブリッシュ
-      visualization_msgs::msg::Marker marker = create_custom_marker(*min_x_point, remaining_cloud.header);
+      Point3D centroid = compute_cluster_centroid(cluster);
+      visualization_msgs::msg::Marker marker = create_ball_marker(centroid, remaining_cloud.header);
       ball_publisher_->publish(marker);
     }
+  }
+
+  visualization_msgs::msg::MarkerArray BallDetector::create_voxel_cluster_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters)
+  {
+    visualization_msgs::msg::MarkerArray marker_array;
+
+    // // ボールクラスタのキーセットを作成
+    // std::unordered_set<const VoxelCluster *> ball_cluster_set;
+    // for (const auto &ball_cluster : ball_clusters)
+    // {
+    //   ball_cluster_set.insert(&ball_cluster);
+    // }
+
+    for (size_t i = 0; i < all_clusters.size(); ++i)
+    {
+      const auto &cluster = all_clusters[i];
+
+      // クラスタがボールクラスタかどうか判定
+      // bool is_ball_cluster = ball_cluster_set.find(&cluster) != ball_cluster_set.end();
+      bool is_ball_cluster = (ball_cluster_indices_.find(i) != ball_cluster_indices_.end());
+
+      float r = is_ball_cluster ? 1.0f : 0.0f;
+      float g = 0.0f;
+      float b = is_ball_cluster ? 0.0f : 1.0f;
+
+      for (size_t v = 0; v < cluster.voxels.size(); ++v)
+      {
+        const auto &voxel = cluster.voxels[v];
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = frame_id_;
+        marker.ns = "voxel_cluster_markers";
+        marker.id = static_cast<int>(i * 10000 + v); // ユニークなIDを生成
+        marker.type = visualization_msgs::msg::Marker::CUBE;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+
+        double offset_x = params_.voxel_size_x / 2.0;
+        double offset_y = params_.voxel_size_y / 2.0;
+        double offset_z = params_.voxel_size_z / 2.0;
+
+        marker.pose.position.x = params_.min_x + (voxel.x * params_.voxel_size_x) + offset_x;
+        marker.pose.position.y = params_.min_y + (voxel.y * params_.voxel_size_y) + offset_y;
+        marker.pose.position.z = params_.min_z + (voxel.z * params_.voxel_size_z) + offset_z;
+        marker.pose.orientation.w = 1.0;
+
+        marker.scale.x = params_.voxel_size_x;
+        marker.scale.y = params_.voxel_size_y;
+        marker.scale.z = params_.voxel_size_z;
+
+        marker.color.r = r;
+        marker.color.g = g;
+        marker.color.b = b;
+        marker.color.a = 0.3;
+
+        marker.lifetime = rclcpp::Duration(0, 1e8); // 約0.1秒
+
+        marker_array.markers.push_back(marker);
+      }
+    }
+
+    return marker_array;
   }
 
   visualization_msgs::msg::Marker BallDetector::create_custom_marker(const Point3D &point, const std_msgs::msg::Header &header)
@@ -603,190 +612,6 @@ namespace ball_detector
     marker.lifetime = rclcpp::Duration(0, 1e8); // 約0.1秒
     return marker;
   }
-
-  visualization_msgs::msg::MarkerArray BallDetector::create_voxel_markers(const std::vector<Voxel> &voxels, const std_msgs::msg::Header &header)
-  {
-    visualization_msgs::msg::MarkerArray marker_array;
-    for (size_t i = 0; i < voxels.size(); ++i)
-    {
-      visualization_msgs::msg::Marker marker;
-      marker.header = header;
-      marker.ns = "voxel_markers";
-      marker.id = i;
-      marker.type = visualization_msgs::msg::Marker::CUBE;
-      marker.action = visualization_msgs::msg::Marker::ADD;
-
-      // ボクセルの中へのオフセットを計算 (ボクセルの左下前→中心)
-      double offset_x = params_.voxel_size_x / 2.0;
-      double offset_y = params_.voxel_size_y / 2.0;
-      double offset_z = params_.voxel_size_z / 2.0;
-
-      marker.pose.position.x = params_.min_x + (voxels[i].x * params_.voxel_size_x) + offset_x;
-      marker.pose.position.y = params_.min_y + (voxels[i].y * params_.voxel_size_y) + offset_y;
-      marker.pose.position.z = params_.min_z + (voxels[i].z * params_.voxel_size_z) + offset_z;
-      marker.pose.orientation.w = 1.0;
-
-      marker.scale.x = params_.voxel_size_x;
-      marker.scale.y = params_.voxel_size_y;
-      marker.scale.z = params_.voxel_size_z;
-
-      marker.color.r = 0.0;
-      marker.color.g = 1.0;
-      marker.color.b = 0.0;
-      marker.color.a = 0.5;
-
-      marker.lifetime = rclcpp::Duration(0, 1e8); // 約0.1秒
-
-      marker_array.markers.push_back(marker);
-    }
-
-    return marker_array;
-  }
-
-  visualization_msgs::msg::MarkerArray BallDetector::create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters)
-  {
-    visualization_msgs::msg::MarkerArray marker_array;
-
-    for (size_t i = 0; i < clusters.size(); ++i)
-    {
-      const auto &cluster = clusters[i];
-
-      // クラスタ内の点からサイズを計算
-      double min_x = std::numeric_limits<double>::max();
-      double max_x = std::numeric_limits<double>::lowest();
-      double min_y = std::numeric_limits<double>::max();
-      double max_y = std::numeric_limits<double>::lowest();
-      double min_z = std::numeric_limits<double>::max();
-      double max_z = std::numeric_limits<double>::lowest();
-
-      for (const auto &p : cluster.points)
-      {
-        if (p.x < min_x)
-          min_x = p.x;
-        if (p.x > max_x)
-          max_x = p.x;
-        if (p.y < min_y)
-          min_y = p.y;
-        if (p.y > max_y)
-          max_y = p.y;
-        if (p.z < min_z)
-          min_z = p.z;
-        if (p.z > max_z)
-          max_z = p.z;
-      }
-
-      double size_x = max_x - min_x;
-      double size_y = max_y - min_y;
-      double size_z = max_z - min_z;
-
-      // クラスタがボールサイズ以下なら緑、それ以外なら青
-      bool is_ball_cluster = (size_x <= 2 * params_.ball_radius &&
-                              size_y <= 2 * params_.ball_radius &&
-                              size_z <= 2 * params_.ball_radius);
-
-      float r = 0.0f;
-      float g = 0.0f;
-      float b = 1.0f; // デフォルト青
-      if (is_ball_cluster)
-      {
-        // ボールと判定したクラスタは緑
-        r = 0.0f;
-        g = 1.0f;
-        b = 0.0f;
-      }
-
-      for (size_t v = 0; v < cluster.voxels.size(); ++v)
-      {
-        const auto &voxel = cluster.voxels[v];
-        visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = frame_id_;
-        marker.ns = "voxel_cluster_markers";
-        marker.id = static_cast<int>(i * 10000 + v); // ユニークなIDを生成
-        marker.type = visualization_msgs::msg::Marker::CUBE;
-        marker.action = visualization_msgs::msg::Marker::ADD;
-
-        double offset_x = params_.voxel_size_x / 2.0;
-        double offset_y = params_.voxel_size_y / 2.0;
-        double offset_z = params_.voxel_size_z / 2.0;
-
-        marker.pose.position.x = params_.min_x + (voxel.x * params_.voxel_size_x) + offset_x;
-        marker.pose.position.y = params_.min_y + (voxel.y * params_.voxel_size_y) + offset_y;
-        marker.pose.position.z = params_.min_z + (voxel.z * params_.voxel_size_z) + offset_z;
-        marker.pose.orientation.w = 1.0;
-
-        marker.scale.x = params_.voxel_size_x;
-        marker.scale.y = params_.voxel_size_y;
-        marker.scale.z = params_.voxel_size_z;
-
-        marker.color.r = r;
-        marker.color.g = g;
-        marker.color.b = b;
-        marker.color.a = 0.9;
-
-        marker.lifetime = rclcpp::Duration(0, 1e8); // 約0.1秒
-
-        marker_array.markers.push_back(marker);
-      }
-    }
-
-    return marker_array;
-  }
-
-  // visualization_msgs::msg::MarkerArray BallDetector::create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters)
-  // {
-  //   visualization_msgs::msg::MarkerArray marker_array;
-
-  //   // クラスタごとに異なる色を生成するためのランダムジェネレータ
-  //   std::random_device rd;
-  //   std::mt19937 gen(rd());
-  //   std::uniform_real_distribution<> dis(0.0, 1.0);
-
-  //   for (size_t i = 0; i < clusters.size(); ++i)
-  //   {
-  //     const auto &cluster = clusters[i];
-
-  //     // クラスタごとにランダムな色を生成
-  //     float r = dis(gen);
-  //     float g = dis(gen);
-  //     float b = dis(gen);
-
-  //     for (const auto &voxel : cluster.voxels)
-  //     {
-  //       visualization_msgs::msg::Marker marker;
-  //       marker.header.frame_id = frame_id_;
-  //       marker.ns = "voxel_cluster_markers";
-  //       marker.id = i * 1000 + marker_array.markers.size(); // ユニークなIDを生成
-  //       marker.type = visualization_msgs::msg::Marker::CUBE;
-  //       marker.action = visualization_msgs::msg::Marker::ADD;
-
-  //       // ボクセルの中心へのオフセットを計算
-  //       double offset_x = params_.voxel_size_x / 2.0;
-  //       double offset_y = params_.voxel_size_y / 2.0;
-  //       double offset_z = params_.voxel_size_z / 2.0;
-
-  //       marker.pose.position.x = params_.min_x + (voxel.x * params_.voxel_size_x) + offset_x;
-  //       marker.pose.position.y = params_.min_y + (voxel.y * params_.voxel_size_y) + offset_y;
-  //       marker.pose.position.z = params_.min_z + (voxel.z * params_.voxel_size_z) + offset_z;
-  //       marker.pose.orientation.w = 1.0;
-
-  //       marker.scale.x = params_.voxel_size_x;
-  //       marker.scale.y = params_.voxel_size_y;
-  //       marker.scale.z = params_.voxel_size_z;
-
-  //       // クラスタごとの色を設定
-  //       marker.color.r = r;
-  //       marker.color.g = g;
-  //       marker.color.b = b;
-  //       marker.color.a = 0.9;
-
-  //       marker.lifetime = rclcpp::Duration(0, 1e8); // 約0.1秒
-
-  //       marker_array.markers.push_back(marker);
-  //     }
-  //   }
-
-  //   return marker_array;
-  // }
 
   visualization_msgs::msg::Marker BallDetector::create_detection_area_marker(const std_msgs::msg::Header &header)
   {

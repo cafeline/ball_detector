@@ -79,11 +79,8 @@ std::vector<VoxelCluster> Clustering::create_voxel_clustering(const std::vector<
       }
     }
 
-    if (is_valid_cluster(cluster, points))
-    {
-      collect_cluster_points(cluster, points);
-      clusters.push_back(cluster);
-    }
+    collect_cluster_points(cluster, points);
+    clusters.push_back(cluster);
   }
 
   return clusters;
