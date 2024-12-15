@@ -44,13 +44,29 @@ namespace ball_detector
     visualization_msgs::msg::Marker create_past_points_marker(const std::deque<Point3D> &past_points, const std_msgs::msg::Header &header);
     std::vector<Point3D> remove_clustered_points(const std::vector<Point3D> &original_points, const std::vector<VoxelCluster> &clusters);
     void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
-    std::vector<VoxelCluster> process_clustering(const std::vector<Point3D> &points);
     void publish_markers(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
     void update_trajectory(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
     std::vector<Point3D> axis_image2robot(const std::vector<Point3D> &input);
     visualization_msgs::msg::Marker create_custom_marker(const Point3D &point, const std_msgs::msg::Header &header);
-    void detect_human(const std::vector<Point3D> &points);
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    Point3D compute_cluster_centroid(const VoxelCluster &cluster);
+    std::vector<int> associate_clusters(const std::vector<VoxelCluster> &current_clusters,
+                                        std::map<int, ClusterTrack> &tracks,
+                                        double max_distance_for_association,
+                                        rclcpp::Time current_time,
+                                        double dt);
+    std::vector<VoxelCluster> filter_by_speed(const std::vector<VoxelCluster> &current_clusters,
+                                              const std::vector<int> &assignments,
+                                              std::map<int, ClusterTrack> &tracks,
+                                              double dt,
+                                              double speed_threshold);
+
+    std::vector<Point3D> previous_centroids_;
+    rclcpp::Time previous_time_;
+    std::mutex centroid_mutex_;    // スレッドセーフのためのミューテックス
+    std::map<int, ClusterTrack> tracks_;
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // メンバー変数
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_subscription_;
@@ -74,7 +90,10 @@ namespace ball_detector
     std::unique_ptr<Clustering> clustering_;
 
     Point3D self_pose_;
-    double livox_pitch_=0.0;
+    double livox_pitch_ = 0.0;
+    double ball_vel_min_ = 0.0;
+    double max_distance_for_association_ = 0.0;
+    int missing_count_threshold_ = 0;
 
     bool is_autonomous = false;
   };
