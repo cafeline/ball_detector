@@ -29,7 +29,7 @@ namespace ball_detector
 
     voxel_processor_ = std::make_unique<VoxelProcessor>(params_);
     clustering_ = std::make_unique<Clustering>(params_);
-    // RCLCPP_INFO(this->get_logger(), "ball_detector initialized");
+    // // RCLCPP_INFO(this->get_logger(), "ball_detector initialized");
   }
 
   void BallDetector::load_parameters()
@@ -65,8 +65,8 @@ namespace ball_detector
 
   void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
-    if (!is_autonomous)
-      return;
+    // if (!is_autonomous)
+    //   return;
     ball_cluster_indices_.clear();
     dynamic_cluster_indices_.clear();
 
@@ -79,7 +79,7 @@ namespace ball_detector
     std::vector<Point3D> tmp_points_transformed = processor.transform_pointcloud(self_pose_.x, self_pose_.y, self_pose_.z, tmp_points_base_origin);
     std::vector<Point3D> processed_points = processor.rotate_pitch(tmp_points_transformed, livox_pitch_);
 
-    // RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_time).count());
+    // // RCLCPP_INFO(this->get_logger(), "Time taken for voxelization and clustering: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_time).count());
 
     // ボクセル化の実行
     std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
@@ -106,7 +106,7 @@ namespace ball_detector
     ////////////////////////////////////////////////////////////////////////////////////////////////
     rclcpp::Time current_time = this->now();
     double dt = (previous_time_.nanoseconds() == 0) ? 0.0 : (current_time - previous_time_).seconds();
-    // RCLCPP_INFO(this->get_logger(), "dt: %f", dt);
+    // // RCLCPP_INFO(this->get_logger(), "dt: %f", dt);
     previous_time_ = current_time;
 
     // トラックにアソシエーション
@@ -128,41 +128,41 @@ namespace ball_detector
     // 速度でフィルタリング
     std::vector<VoxelCluster> dynamic_clusters = filter_by_speed(clusters, assignments, tracks_, dt, ball_vel_min_);
 
-    RCLCPP_INFO(this->get_logger(), "clusters size: %d, dynamic_clusters size: %d, tracks_ size: %d, assignments size: %d", clusters.size(), dynamic_clusters.size(), tracks_.size(), assignments.size());
+    // // RCLCPP_INFO(this->get_logger(), "clusters size: %d, dynamic_clusters size: %d, tracks_ size: %d, assignments size: %d", clusters.size(), dynamic_clusters.size(), tracks_.size(), assignments.size());
 
-
-    auto cluster_centroid = [this](const VoxelCluster &c) {
+    auto cluster_centroid = [this](const VoxelCluster &c)
+    {
       return this->calculate_cluster_centroid(c);
     };
 
-    auto are_centroids_close = [](const Point3D &a, const Point3D &b, double tol=1e-6) {
+    auto are_centroids_close = [](const Point3D &a, const Point3D &b, double tol = 1e-6)
+    {
       double dx = a.x - b.x;
       double dy = a.y - b.y;
       double dz = a.z - b.z;
-      double dist_sq = dx*dx + dy*dy + dz*dz;
-      return dist_sq < tol*tol;
+      double dist_sq = dx * dx + dy * dy + dz * dz;
+      return dist_sq < tol * tol;
     };
 
-     RCLCPP_ERROR(this->get_logger(), "dynamic_clusters size: %d", (int)dynamic_clusters.size());
-     for (const auto &dyn_cluster : dynamic_clusters)
-     {
+    // RCLCPP_ERROR(this->get_logger(), "dynamic_clusters size: %d", (int)dynamic_clusters.size());
+    for (const auto &dyn_cluster : dynamic_clusters)
+    {
       // 動的クラスタの重心を取得
       Point3D dyn_center = cluster_centroid(dyn_cluster);
 
-       for (size_t i = 0; i < clusters.size(); i++)
-       {
+      for (size_t i = 0; i < clusters.size(); i++)
+      {
         // clusters[i] の重心を取得
         Point3D orig_center = cluster_centroid(clusters[i]);
         // 重心がほぼ同一であれば同じクラスタとみなす
         if (are_centroids_close(orig_center, dyn_center))
         {
-          RCLCPP_INFO(this->get_logger(), "Dynamic cluster matched with clusters[%d]", (int)i);
+          // RCLCPP_INFO(this->get_logger(), "Dynamic cluster matched with clusters[%d]", (int)i);
           dynamic_cluster_indices_.insert(i);
           break;
         }
       }
     }
-
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
     // 残りの点群をPointCloud2形式に変換してパブリッシュ
@@ -172,15 +172,15 @@ namespace ball_detector
     // マーカーのパブリッシュ
     publish_markers(all_clusters, ball_clusters, remaining_cloud);
 
+
+
     // 軌道と過去の検出点の更新
     update_trajectory(dynamic_clusters, remaining_cloud);
 
     // トラックの状態をログ出力
     for (const auto &track : tracks_)
     {
-      RCLCPP_INFO(this->get_logger(), "Track ID: %d, Last Centroid: x=%f, y=%f, z=%f, Missing Count: %d",
-                  track.first, track.second.last_centroid.x, track.second.last_centroid.y,
-                  track.second.last_centroid.z, track.second.missing_count);
+      // RCLCPP_INFO(this->get_logger(), "Track ID: %d, Last Centroid: x=%f, y=%f, z=%f, Missing Count: %d", track.first, track.second.last_centroid.x, track.second.last_centroid.y, track.second.last_centroid.z, track.second.missing_count);
     }
   }
 
@@ -249,7 +249,7 @@ namespace ball_detector
       if (best_idx >= 0)
       {
         // 対応付け成功
-        // RCLCPP_INFO(this->get_logger(), "対応付け成功");
+        // // RCLCPP_INFO(this->get_logger(), "対応付け成功");
         assignments[i] = track_list[best_idx]->first;
         track_used[best_idx] = true;
         track_list[best_idx]->second.last_update_time = current_time;
@@ -262,7 +262,7 @@ namespace ball_detector
     {
       if (assignments[i] < 0)
       {
-        // RCLCPP_INFO(this->get_logger(), "New track");
+        // // RCLCPP_INFO(this->get_logger(), "New track");
         int new_id = tracks.empty() ? 0 : tracks.rbegin()->first + 1;
         Point3D c = compute_cluster_centroid(current_clusters[i]);
         ClusterTrack new_track{new_id, c, current_time, 0};
@@ -276,7 +276,7 @@ namespace ball_detector
     {
       if (!track_used[j])
       {
-        // RCLCPP_INFO(this->get_logger(), "Missing track");
+        // // RCLCPP_INFO(this->get_logger(), "Missing track");
         track_list[j]->second.missing_count += 1;
       }
     }
@@ -316,20 +316,20 @@ namespace ball_detector
       double dz = cur_c.z - last_c.z;
       double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
       double speed = dist / dt;
-      // RCLCPP_INFO(this->get_logger(), "Cluster %zu last_centroid=(%f,%f,%f)", i, last_c.x, last_c.y, last_c.z);
-      // RCLCPP_INFO(this->get_logger(), "Cluster %zu cur_centroid =(%f,%f,%f)", i, cur_c.x, cur_c.y, cur_c.z);
+      // // RCLCPP_INFO(this->get_logger(), "Cluster %zu last_centroid=(%f,%f,%f)", i, last_c.x, last_c.y, last_c.z);
+      // // RCLCPP_INFO(this->get_logger(), "Cluster %zu cur_centroid =(%f,%f,%f)", i, cur_c.x, cur_c.y, cur_c.z);
 
       // 速度判定後、動的な場合のみ残す
       // 動的と判定した場合、ここでトラック重心を更新する
       if (speed >= speed_threshold)
       {
         result.push_back(current_clusters[i]);
-        // RCLCPP_INFO(this->get_logger(), "クラスタ重心更新");
-        // RCLCPP_INFO(this->get_logger(), "speed: %f", speed);
-        // RCLCPP_INFO(this->get_logger(), "speed_threshold: %f", speed_threshold);
+        // // RCLCPP_INFO(this->get_logger(), "クラスタ重心更新");
+        // // RCLCPP_INFO(this->get_logger(), "speed: %f", speed);
+        // // RCLCPP_INFO(this->get_logger(), "speed_threshold: %f", speed_threshold);
         // RCLCPP_ERROR(this->get_logger(), "Cluster %zu is dynamic", i);
-        // RCLCPP_INFO(this->get_logger(), "Cluster %zu last_centroid=(%f,%f,%f)", i, last_c.x, last_c.y, last_c.z);
-        // RCLCPP_INFO(this->get_logger(), "Cluster %zu cur_centroid =(%f,%f,%f)", i, cur_c.x, cur_c.y, cur_c.z);
+        // // RCLCPP_INFO(this->get_logger(), "Cluster %zu last_centroid=(%f,%f,%f)", i, last_c.x, last_c.y, last_c.z);
+        // // RCLCPP_INFO(this->get_logger(), "Cluster %zu cur_centroid =(%f,%f,%f)", i, cur_c.x, cur_c.y, cur_c.z);
         tracks[id].last_centroid = cur_c; // 動的と判断されたトラックのみここで更新
       }
       else
@@ -361,7 +361,7 @@ namespace ball_detector
   void BallDetector::autonomous_callback(const std_msgs::msg::Bool::SharedPtr msg)
   {
     is_autonomous = msg->data;
-    // RCLCPP_INFO(this->get_logger(), "自動：%d", is_autonomous);
+    // // RCLCPP_INFO(this->get_logger(), "自動：%d", is_autonomous);
   }
 
   void BallDetector::publish_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
@@ -458,7 +458,7 @@ namespace ball_detector
         marker.color.b = b;
         marker.color.a = 0.3;
 
-        marker.lifetime = rclcpp::Duration(0, 1e8); // 約0.1秒
+        marker.lifetime = rclcpp::Duration(0, 1); // 約0.1秒
 
         marker_array.markers.push_back(marker);
       }
@@ -500,11 +500,17 @@ namespace ball_detector
   void BallDetector::update_trajectory(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
   {
     VoxelCluster ball_cluster;
-    for (const auto &cluster : clusters)
+    for (size_t i = 0; i < clusters.size(); ++i)
     {
-      for (const auto &point : cluster.points)
+      bool is_ball = (ball_cluster_indices_.find(i) != ball_cluster_indices_.end());
+      bool is_dynamic = (dynamic_cluster_indices_.find(i) != dynamic_cluster_indices_.end());
+      // ボールクラスタかつ動的クラスタのみ合成
+      if (is_ball && is_dynamic)
       {
-        ball_cluster.points.push_back(point);
+        for (const auto &point : clusters[i].points)
+        {
+          ball_cluster.points.push_back(point);
+        }
       }
     }
 
@@ -521,7 +527,7 @@ namespace ball_detector
       ball_trajectory_points_.push_back(centroid);
 
       // 過去の検出点コンテナに追加
-      const size_t MAX_PAST_POINTS = 200; // 最大保持過去点数
+      const size_t MAX_PAST_POINTS = 10; // 最大保持過去点数を10に変更
       if (past_points_.size() >= MAX_PAST_POINTS)
       {
         past_points_.pop_front(); // 古いポイントを削除
@@ -784,14 +790,14 @@ namespace ball_detector
     // ライフタイムを0に設定して永続的に表示
     marker.lifetime = rclcpp::Duration(0, 0);
 
-    // 過去の検出点を追加
+    // 過去の検出点を追加（最大10点）
     for (const auto &point : past_points)
     {
-      geometry_msgs::msg::Point geom_point;
-      geom_point.x = point.x;
-      geom_point.y = point.y;
-      geom_point.z = point.z;
-      marker.points.push_back(geom_point);
+        geometry_msgs::msg::Point geom_point;
+        geom_point.x = point.x;
+        geom_point.y = point.y;
+        geom_point.z = point.z;
+        marker.points.push_back(geom_point);
     }
 
     return marker;

@@ -110,7 +110,7 @@ bool Clustering::is_valid_cluster(const VoxelCluster &cluster, const std::vector
 {
   double size_x, size_y, size_z;
   calculate_cluster_size(cluster, points, size_x, size_y, size_z);
-  return size_x <= 2 * params_.ball_radius && size_y <= 2 * params_.ball_radius && size_z <= 2 * params_.ball_radius && points.size() >= 3;
+  return size_x <= 2 * params_.ball_radius && size_y <= 2 * params_.ball_radius && size_z <= 2 * params_.ball_radius && points.size() >= 1;
 }
 
 void Clustering::calculate_cluster_size(const VoxelCluster &cluster, const std::vector<Point3D> &points,
