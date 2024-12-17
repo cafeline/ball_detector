@@ -15,7 +15,7 @@ namespace ball_detector
     subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/livox/lidar", 10, std::bind(&BallDetector::pointcloud_callback, this, std::placeholders::_1));
     pose_subscription_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "/laser_pose", 10, std::bind(&BallDetector::pose_callback, this, std::placeholders::_1));
+        "/self_pose", 10, std::bind(&BallDetector::pose_callback, this, std::placeholders::_1));
     autonomous_subscription_ = this->create_subscription<std_msgs::msg::Bool>(
         "autonomous", 10, std::bind(&BallDetector::autonomous_callback, this, std::placeholders::_1));
 
@@ -49,12 +49,14 @@ namespace ball_detector
     ball_vel_min_ = this->get_parameter("ball_vel_min").as_double();
     max_distance_for_association_ = this->get_parameter("max_distance_for_association").as_double();
     missing_count_threshold_ = this->get_parameter("missing_count_threshold").as_int();
+    params_.odom2laser_x = this->get_parameter("odom2laser_x").as_double();
+    params_.odom2laser_y = this->get_parameter("odom2laser_y").as_double();
   }
 
   void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
-    // if (!is_autonomous)
-    //   return;
+    if (!is_autonomous)
+      return;
     ball_cluster_indices_.clear();
     dynamic_cluster_indices_.clear();
 
@@ -71,7 +73,7 @@ namespace ball_detector
     std::vector<VoxelCluster> ball_clusters = extract_ball_clusters(clusters, processed_points);
     std::vector<VoxelCluster> dynamic_clusters;
     process_clusters(clusters, dynamic_clusters, processed_points, msg->header);
-    
+
     // 残りの点群をPointCloud2形式に変換してパブリッシュ
     PointCloudProcessor processor(params_);
     sensor_msgs::msg::PointCloud2 remaining_cloud = processor.vector_to_PC2(processed_points);
@@ -335,8 +337,8 @@ namespace ball_detector
     double siny_cosp = 2.0 * (w * z + x * y);
     double cosy_cosp = 1.0 - 2.0 * (y * y + z * z);
     double yaw = std::atan2(siny_cosp, cosy_cosp);
-    self_pose_.x = msg->pose.position.x;
-    self_pose_.y = msg->pose.position.y;
+    self_pose_.x = msg->pose.position.x + params_.odom2laser_x;
+    self_pose_.y = msg->pose.position.y + params_.odom2laser_y;
     self_pose_.z = yaw;
   }
 
