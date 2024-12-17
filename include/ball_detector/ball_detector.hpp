@@ -31,13 +31,19 @@ namespace ball_detector
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
     void autonomous_callback(const std_msgs::msg::Bool::SharedPtr msg);
 
+    std::vector<Point3D> preprocess_pointcloud(const sensor_msgs::msg::PointCloud2 &msg);
+    std::vector<VoxelCluster> extract_ball_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &processed_points);
+    bool is_ball_size(double size_x, double size_y, double size_z) const;
+    void process_clusters(const std::vector<VoxelCluster> &clusters, std::vector<VoxelCluster> &dynamic_clusters, const std::vector<Point3D> &processed_points, const std_msgs::msg::Header &header);
+    void remove_missing_tracks();
+    void identify_dynamic_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<VoxelCluster> &dynamic_clusters);
+    bool are_centroids_close(const Point3D &a, const Point3D &b) const;
     std::vector<Point3D> PC2_to_vector(const sensor_msgs::msg::PointCloud2 &cloud_msg);
     std::vector<Point3D> filter_points(const std::vector<Point3D> &input);
     std::vector<Point3D> voxel_downsample(const std::vector<Point3D> &input);
     Point3D calculate_centroid(const std::vector<Point3D> &points);
     Point3D calculate_cluster_centroid(const VoxelCluster &cluster);
     visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid, const std_msgs::msg::Header &header);
-    visualization_msgs::msg::MarkerArray create_voxel_markers(const std::vector<Voxel> &voxels, const std_msgs::msg::Header &header);
     visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters);
     visualization_msgs::msg::Marker create_detection_area_marker(const std_msgs::msg::Header &header);
     visualization_msgs::msg::Marker create_trajectory_marker(const std::deque<Point3D> &trajectory, const std_msgs::msg::Header &header);
@@ -46,7 +52,6 @@ namespace ball_detector
     void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
     void publish_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
     void update_trajectory(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
-    std::vector<Point3D> axis_image2robot(const std::vector<Point3D> &input);
     visualization_msgs::msg::Marker create_custom_marker(const Point3D &point, const std_msgs::msg::Header &header);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -64,7 +69,7 @@ namespace ball_detector
 
     std::vector<Point3D> previous_centroids_;
     rclcpp::Time previous_time_;
-    std::mutex centroid_mutex_;    // スレッドセーフのためのミューテックス
+    std::mutex centroid_mutex_; // スレッドセーフのためのミューテックス
     std::map<int, ClusterTrack> tracks_;
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // メンバー変数
