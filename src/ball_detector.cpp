@@ -71,6 +71,7 @@ namespace ball_detector
     std::vector<VoxelCluster> ball_clusters = extract_ball_clusters(clusters, processed_points);
     std::vector<VoxelCluster> dynamic_clusters;
     process_clusters(clusters, dynamic_clusters, processed_points, msg->header);
+    
     // 残りの点群をPointCloud2形式に変換してパブリッシュ
     PointCloudProcessor processor(params_);
     sensor_msgs::msg::PointCloud2 remaining_cloud = processor.vector_to_PC2(processed_points);
@@ -101,6 +102,7 @@ namespace ball_detector
   std::vector<VoxelCluster> BallDetector::extract_ball_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &processed_points)
   {
     std::vector<VoxelCluster> ball_clusters;
+    ball_dynamic_cluster_indices_.clear();
     for (size_t i = 0; i < clusters.size(); ++i)
     {
       double size_x, size_y, size_z;
@@ -109,6 +111,8 @@ namespace ball_detector
       {
         ball_clusters.emplace_back(clusters[i]);
         ball_cluster_indices_.insert(i);
+        // ボールクラスタが元々clustersの何番目だったかを記録
+        ball_dynamic_cluster_indices_.push_back(i);
       }
     }
     return ball_clusters;
@@ -314,8 +318,8 @@ namespace ball_detector
       if (speed >= speed_threshold)
       {
         result.push_back(current_clusters[i]);
-        tracks[id].last_centroid = cur_c; // 動的と判断されたトラックのみここで更新
       }
+      tracks[id].last_centroid = cur_c; // 重心更新
     }
 
     return result;
@@ -349,9 +353,18 @@ namespace ball_detector
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
     // ボールクラスタのみをマークする場合の処理
-    for (const auto &cluster : ball_clusters)
+    for (size_t j = 0; j < ball_clusters.size(); ++j)
     {
+      const auto &cluster = ball_clusters[j];
       if (cluster.points.empty())
+      {
+        continue;
+      }
+
+      size_t orig_idx = ball_dynamic_cluster_indices_[j];
+      bool is_dynamic = (dynamic_cluster_indices_.find(orig_idx) != dynamic_cluster_indices_.end());
+      // 動的クラスタでない場合はtennis_ball発行しない
+      if (!is_dynamic)
       {
         continue;
       }
