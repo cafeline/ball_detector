@@ -68,7 +68,11 @@ namespace ball_detector
     // associate_clusters, filter_by_speed, identify_dynamic_clusters などもclustering側にあるとする
     std::vector<VoxelCluster> ball_clusters = clustering_->extract_ball_clusters(clusters, processed_points);
     std::vector<VoxelCluster> dynamic_clusters;
-    process_clusters(clusters, dynamic_clusters, processed_points, msg->header);
+
+    rclcpp::Time current_time = this->now();
+    double dt = (previous_time_.nanoseconds() == 0) ? 0.0 : (current_time - previous_time_).seconds();
+    previous_time_ = current_time;
+    clustering_->process_clusters(clusters, dynamic_clusters, current_time, dt);
 
     // 残りの点群をPointCloud2形式に変換してパブリッシュ
     PointCloudProcessor processor(params_);
@@ -89,34 +93,6 @@ namespace ball_detector
     auto filtered_points = processor.filter_points_base_origin(self_pose_.x, self_pose_.y, self_pose_.z, tmp_points);
     auto transformed_points = processor.transform_pointcloud(self_pose_.x, self_pose_.y, self_pose_.z, filtered_points);
     return processor.rotate_pitch(transformed_points, livox_pitch_);
-  }
-
-  void BallDetector::process_clusters(const std::vector<VoxelCluster> &clusters, std::vector<VoxelCluster> &dynamic_clusters,
-                                      const std::vector<Point3D> &processed_points,
-                                      const std_msgs::msg::Header &header)
-  {
-    rclcpp::Time current_time = this->now();
-    double dt = (previous_time_.nanoseconds() == 0) ? 0.0 : (current_time - previous_time_).seconds();
-    previous_time_ = current_time;
-
-    // clustering側でアソシエーション
-    std::vector<int> assignments = clustering_->associate_clusters(clusters, tracks_, params_.max_distance_for_association, current_time, dt);
-    remove_missing_tracks();
-
-    dynamic_clusters = clustering_->filter_by_speed(clusters, assignments, tracks_, dt, params_.ball_vel_min);
-    clustering_->identify_dynamic_clusters(clusters, dynamic_clusters);
-    
-  }
-
-  void BallDetector::remove_missing_tracks()
-  {
-    for (auto it = tracks_.begin(); it != tracks_.end();)
-    {
-      if (it->second.missing_count > missing_count_threshold_)
-        it = tracks_.erase(it);
-      else
-        ++it;
-    }
   }
 
   void BallDetector::pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)

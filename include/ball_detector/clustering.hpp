@@ -23,7 +23,8 @@ class Clustering
 {
 public:
   Clustering(const Parameters &params);
-
+  void process_clusters(const std::vector<VoxelCluster> &clusters, std::vector<VoxelCluster> &dynamic_clusters, rclcpp::Time current_time, double dt);
+  void remove_missing_tracks();
   std::vector<VoxelCluster> create_voxel_clustering(const std::vector<Point3D> &points, const std::vector<Voxel> &voxels);
 
   void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
@@ -56,10 +57,10 @@ private:
   Parameters params_;
 
   std::vector<std::string> get_adjacent_voxels(const std::string &key) const;
-  bool is_valid_cluster(const VoxelCluster &cluster, const std::vector<Point3D> &points) const;
   bool point_in_voxel(const Point3D &point, const Voxel &voxel) const;
 
   std::unordered_set<size_t> ball_size_cluster_indices_;
   std::unordered_set<size_t> dynamic_cluster_indices_;
   std::vector<size_t> dynamic_ball_cluster_indices_;
+  std::map<int, ClusterTrack> tracks_;
 };

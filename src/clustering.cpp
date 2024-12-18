@@ -6,6 +6,7 @@
 #include <random>
 #include <string>
 #include <cmath>
+#include <rclcpp/rclcpp.hpp>
 
 VoxelProcessor::VoxelProcessor(const Parameters &params) : params_(params) {}
 
@@ -107,11 +108,25 @@ std::vector<std::string> Clustering::get_adjacent_voxels(const std::string &key)
   return neighbors;
 }
 
-bool Clustering::is_valid_cluster(const VoxelCluster &cluster, const std::vector<Point3D> &points) const
+void Clustering::process_clusters(const std::vector<VoxelCluster> &clusters, std::vector<VoxelCluster> &dynamic_clusters, rclcpp::Time current_time, double dt)
 {
-  double size_x, size_y, size_z;
-  calculate_cluster_size(cluster, points, size_x, size_y, size_z);
-  return size_x <= 2 * params_.ball_radius && size_y <= 2 * params_.ball_radius && size_z <= 2 * params_.ball_radius && points.size() >= 1;
+  // clustering側でアソシエーション
+  std::vector<int> assignments = associate_clusters(clusters, tracks_, params_.max_distance_for_association, current_time, dt);
+  remove_missing_tracks();
+
+  dynamic_clusters = filter_by_speed(clusters, assignments, tracks_, dt, params_.ball_vel_min);
+  identify_dynamic_clusters(clusters, dynamic_clusters);
+}
+
+void Clustering::remove_missing_tracks()
+{
+  for (auto it = tracks_.begin(); it != tracks_.end();)
+  {
+    if (it->second.missing_count > 15)
+      it = tracks_.erase(it);
+    else
+      ++it;
+  }
 }
 
 void Clustering::calculate_cluster_size(const VoxelCluster &cluster, const std::vector<Point3D> &points,

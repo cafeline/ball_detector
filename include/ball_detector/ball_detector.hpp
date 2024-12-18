@@ -34,9 +34,6 @@ namespace ball_detector
 
     std::vector<Point3D> preprocess_pointcloud(const sensor_msgs::msg::PointCloud2 &msg);
 
-    void process_clusters(const std::vector<VoxelCluster> &clusters, std::vector<VoxelCluster> &dynamic_clusters,
-                          const std::vector<Point3D> &processed_points, const std_msgs::msg::Header &header);
-
     void remove_missing_tracks();
 
 
@@ -52,7 +49,6 @@ namespace ball_detector
     std::vector<Point3D> previous_centroids_;
     rclcpp::Time previous_time_;
     std::mutex centroid_mutex_; // スレッドセーフのためのミューテックス
-    std::map<int, ClusterTrack> tracks_;
 
     // メンバー変数
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
@@ -82,7 +78,6 @@ namespace ball_detector
     double livox_pitch_ = 0.0;
     double ball_vel_min_ = 0.0;
     double max_distance_for_association_ = 0.0;
-    int missing_count_threshold_ = 0;
 
     bool is_autonomous = false;
   };
