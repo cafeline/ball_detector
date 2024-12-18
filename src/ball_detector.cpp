@@ -105,6 +105,7 @@ namespace ball_detector
 
     dynamic_clusters = clustering_->filter_by_speed(clusters, assignments, tracks_, dt, params_.ball_vel_min);
     clustering_->identify_dynamic_clusters(clusters, dynamic_clusters);
+    
   }
 
   void BallDetector::remove_missing_tracks()
@@ -144,14 +145,12 @@ namespace ball_detector
     visualization_msgs::msg::MarkerArray voxel_marker_array = create_voxel_cluster_markers(all_clusters, ball_clusters);
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
-    // tennis_ballはボールサイズかつ動的なクラスタのみ
-    // dynamic indicesはclustering側で取得可
     const auto &dynamic_indices = clustering_->get_dynamic_cluster_indices();
-    const auto &ball_indices = clustering_->get_ball_cluster_indices();
+    const auto &ball_indices = clustering_->get_ball_size_cluster_indices();
 
     for (size_t j = 0; j < ball_clusters.size(); ++j)
     {
-      size_t orig_idx = clustering_->get_ball_cluster_original_index(j);
+      size_t orig_idx = clustering_->get_dynamic_ball_cluster_original_index(j);
       if (dynamic_indices.find(orig_idx) == dynamic_indices.end())
       {
         continue;
@@ -172,7 +171,7 @@ namespace ball_detector
   {
     visualization_msgs::msg::MarkerArray marker_array;
 
-    const auto &ball_indices = clustering_->get_ball_cluster_indices();
+    const auto &ball_indices = clustering_->get_ball_size_cluster_indices();
     const auto &dynamic_indices = clustering_->get_dynamic_cluster_indices();
 
     for (size_t i = 0; i < all_clusters.size(); ++i)
@@ -261,7 +260,7 @@ namespace ball_detector
 
   void BallDetector::update_trajectory(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
   {
-    const auto &ball_indices = clustering_->get_ball_cluster_indices();
+    const auto &ball_indices = clustering_->get_ball_size_cluster_indices();
     const auto &dynamic_indices = clustering_->get_dynamic_cluster_indices();
 
     VoxelCluster ball_cluster;

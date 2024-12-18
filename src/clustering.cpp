@@ -168,8 +168,8 @@ bool Clustering::point_in_voxel(const Point3D &point, const Voxel &voxel) const
 std::vector<VoxelCluster> Clustering::extract_ball_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &points)
 {
   std::vector<VoxelCluster> ball_clusters;
-  ball_cluster_indices_.clear();
-  ball_cluster_original_indices_.clear();
+  ball_size_cluster_indices_.clear();
+  dynamic_ball_cluster_indices_.clear();
 
   for (size_t i = 0; i < clusters.size(); ++i)
   {
@@ -178,8 +178,8 @@ std::vector<VoxelCluster> Clustering::extract_ball_clusters(const std::vector<Vo
     if (is_ball_size(size_x, size_y, size_z))
     {
       ball_clusters.push_back(clusters[i]);
-      ball_cluster_indices_.insert(i);
-      ball_cluster_original_indices_.push_back(i);
+      ball_size_cluster_indices_.insert(i);
+      dynamic_ball_cluster_indices_.push_back(i);
     }
   }
   return ball_clusters;

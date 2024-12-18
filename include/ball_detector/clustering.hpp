@@ -48,9 +48,9 @@ public:
   Point3D calculate_cluster_centroid(const VoxelCluster &cluster);
   bool are_centroids_close(const Point3D &a, const Point3D &b) const;
 
-  const std::unordered_set<size_t> &get_ball_cluster_indices() const { return ball_cluster_indices_; }
+  const std::unordered_set<size_t> &get_ball_size_cluster_indices() const { return ball_size_cluster_indices_; }
   const std::unordered_set<size_t> &get_dynamic_cluster_indices() const { return dynamic_cluster_indices_; }
-  size_t get_ball_cluster_original_index(size_t j) const { return ball_cluster_original_indices_[j]; }
+  size_t get_dynamic_ball_cluster_original_index(size_t j) const { return dynamic_ball_cluster_indices_[j]; }
 
 private:
   Parameters params_;
@@ -59,7 +59,7 @@ private:
   bool is_valid_cluster(const VoxelCluster &cluster, const std::vector<Point3D> &points) const;
   bool point_in_voxel(const Point3D &point, const Voxel &voxel) const;
 
-  std::unordered_set<size_t> ball_cluster_indices_;
+  std::unordered_set<size_t> ball_size_cluster_indices_;
   std::unordered_set<size_t> dynamic_cluster_indices_;
-  std::vector<size_t> ball_cluster_original_indices_;
+  std::vector<size_t> dynamic_ball_cluster_indices_;
 };
