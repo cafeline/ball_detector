@@ -29,12 +29,13 @@ public:
 
   void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
   void calculate_cluster_size(const VoxelCluster &cluster, const std::vector<Point3D> &points, double &size_x, double &size_y, double &size_z) const;
+  std::vector<VoxelCluster> identify_dynamic_clusters(const std::vector<VoxelCluster> &clusters, const rclcpp::Time &current_time, double dt);
 
   void calc_ball_clusters_indices(const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &points);
   std::vector<VoxelCluster> extract_ball_clusters(const std::vector<VoxelCluster> &clusters);
   std::vector<VoxelCluster> extract_dynamic_ball_clusters(const std::vector<VoxelCluster> &clusters);
   void calc_dynamic_ball_cluster_indices(const std::vector<VoxelCluster> &clusters);
-  void identify_dynamic_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<VoxelCluster> &dynamic_clusters);
+  void calc_dynamic_cluster_indices(const std::vector<VoxelCluster> &clusters, const std::vector<VoxelCluster> &dynamic_clusters);
 
   std::vector<int> associate_clusters(const std::vector<VoxelCluster> &current_clusters,
                                       std::map<int, ClusterTrack> &tracks,

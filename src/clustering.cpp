@@ -111,12 +111,19 @@ std::vector<std::string> Clustering::get_adjacent_voxels(const std::string &key)
 void Clustering::process_clusters(const std::vector<Point3D> &processed_points, const std::vector<VoxelCluster> &clusters, rclcpp::Time current_time, double dt)
 {
   calc_ball_clusters_indices(clusters, processed_points);
-  std::vector<VoxelCluster> ball_clusters = extract_ball_clusters(clusters);
-  // clustering側でアソシエーション
+
+  std::vector<VoxelCluster> dynamic_clusters = identify_dynamic_clusters(clusters, current_time, dt);
+  calc_dynamic_cluster_indices(clusters, dynamic_clusters);
+
+  calc_dynamic_ball_cluster_indices(clusters);
+}
+
+std::vector<VoxelCluster> Clustering::identify_dynamic_clusters(const std::vector<VoxelCluster> &clusters, const rclcpp::Time &current_time, double dt)
+{
   std::vector<int> assignments = associate_clusters(clusters, tracks_, params_.max_distance_for_association, current_time, dt);
   remove_missing_tracks();
   std::vector<VoxelCluster> dynamic_clusters = filter_by_speed(clusters, assignments, tracks_, dt, params_.ball_vel_min);
-  identify_dynamic_clusters(clusters, dynamic_clusters);
+  return dynamic_clusters;
 }
 
 void Clustering::remove_missing_tracks()
@@ -219,7 +226,7 @@ Point3D Clustering::calculate_cluster_centroid(const VoxelCluster &cluster)
   return centroid;
 }
 
-void Clustering::identify_dynamic_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<VoxelCluster> &dynamic_clusters)
+void Clustering::calc_dynamic_cluster_indices(const std::vector<VoxelCluster> &clusters, const std::vector<VoxelCluster> &dynamic_clusters)
 {
   dynamic_cluster_indices_.clear();
   for (const auto &dyn_cluster : dynamic_clusters)

@@ -54,21 +54,15 @@ namespace ball_detector
   {
     // if (!is_autonomous)
     //   return;
-
-    auto start_time = std::chrono::high_resolution_clock::now();
-
-    std::vector<Point3D> processed_points = preprocess_pointcloud(*msg);
-
-    // ボクセル化 & クラスタリング
-    std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
-    std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
-
     rclcpp::Time current_time = this->now();
     double dt = (previous_time_.nanoseconds() == 0) ? 0.0 : (current_time - previous_time_).seconds();
     previous_time_ = current_time;
+
+    std::vector<Point3D> processed_points = preprocess_pointcloud(*msg);
+    // ボクセル化 & クラスタリング
+    std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
+    std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
     clustering_->process_clusters(processed_points, clusters, current_time, dt);
-    clustering_->calc_dynamic_ball_cluster_indices(clusters);
-    std::vector<VoxelCluster> dynamic_ball_clusters = clustering_->extract_dynamic_ball_clusters(clusters);
 
     // 残りの点群をPointCloud2形式に変換してパブリッシュ
     PointCloudProcessor processor(params_);
@@ -77,7 +71,6 @@ namespace ball_detector
 
     // マーカーのパブリッシュ
     publish_markers(clusters, remaining_cloud);
-
     // 軌道と過去の検出点の更新
     update_trajectory(clusters, remaining_cloud);
   }
@@ -264,14 +257,14 @@ namespace ball_detector
     {
       Point3D centroid = clustering_->calculate_cluster_centroid(dynamic_ball_cluster);
 
-      const size_t MAX_TRAJECTORY_POINTS = 200;
+      const size_t MAX_TRAJECTORY_POINTS = 100;
       if (ball_trajectory_points_.size() >= MAX_TRAJECTORY_POINTS)
       {
         ball_trajectory_points_.pop_front();
       }
       ball_trajectory_points_.push_back(centroid);
 
-      const size_t MAX_PAST_POINTS = 20;
+      const size_t MAX_PAST_POINTS = 10;
       if (past_points_.size() >= MAX_PAST_POINTS)
       {
         past_points_.pop_front();
