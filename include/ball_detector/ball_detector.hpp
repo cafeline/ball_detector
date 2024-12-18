@@ -39,21 +39,15 @@ namespace ball_detector
 
     void remove_missing_tracks();
 
-    std::vector<Point3D> PC2_to_vector(const sensor_msgs::msg::PointCloud2 &cloud_msg);
-    std::vector<Point3D> filter_points(const std::vector<Point3D> &input);
-    std::vector<Point3D> voxel_downsample(const std::vector<Point3D> &input);
 
     visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid, const std_msgs::msg::Header &header);
     visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters);
-    visualization_msgs::msg::Marker create_detection_area_marker(const std_msgs::msg::Header &header);
     visualization_msgs::msg::Marker create_trajectory_marker(const std::deque<Point3D> &trajectory, const std_msgs::msg::Header &header);
     visualization_msgs::msg::Marker create_past_points_marker(const std::deque<Point3D> &past_points, const std_msgs::msg::Header &header);
 
-    std::vector<Point3D> remove_clustered_points(const std::vector<Point3D> &original_points, const std::vector<VoxelCluster> &clusters);
     void publish_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters,
                          const sensor_msgs::msg::PointCloud2 &remaining_cloud);
     void update_trajectory(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
-    visualization_msgs::msg::Marker create_custom_marker(const Point3D &point, const std_msgs::msg::Header &header);
 
     std::vector<Point3D> previous_centroids_;
     rclcpp::Time previous_time_;
