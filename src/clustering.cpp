@@ -5,8 +5,9 @@
 #include <limits>
 #include <random>
 #include <string>
+#include <cmath>
 
-VoxelProcessor::VoxelProcessor(const Parameters &params) : params_(params){}
+VoxelProcessor::VoxelProcessor(const Parameters &params) : params_(params) {}
 
 std::vector<Voxel> VoxelProcessor::create_voxel(const std::vector<Point3D> &points)
 {
@@ -37,7 +38,7 @@ std::vector<Voxel> VoxelProcessor::create_voxel(const std::vector<Point3D> &poin
   return result;
 }
 
-Clustering::Clustering(const Parameters &params): params_(params){}
+Clustering::Clustering(const Parameters &params) : params_(params) {}
 
 std::vector<VoxelCluster> Clustering::create_voxel_clustering(const std::vector<Point3D> &points, const std::vector<Voxel> &voxels)
 {
@@ -162,4 +163,188 @@ bool Clustering::point_in_voxel(const Point3D &point, const Voxel &voxel) const
          point.y < params_.min_y + (voxel.y + 1) * params_.voxel_size_y &&
          point.z >= params_.min_z + voxel.z * params_.voxel_size_z &&
          point.z < params_.min_z + (voxel.z + 1) * params_.voxel_size_z;
+}
+
+std::vector<VoxelCluster> Clustering::extract_ball_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &points)
+{
+  std::vector<VoxelCluster> ball_clusters;
+  ball_cluster_indices_.clear();
+  ball_cluster_original_indices_.clear();
+
+  for (size_t i = 0; i < clusters.size(); ++i)
+  {
+    double size_x, size_y, size_z;
+    calculate_cluster_size(clusters[i], points, size_x, size_y, size_z);
+    if (is_ball_size(size_x, size_y, size_z))
+    {
+      ball_clusters.push_back(clusters[i]);
+      ball_cluster_indices_.insert(i);
+      ball_cluster_original_indices_.push_back(i);
+    }
+  }
+  return ball_clusters;
+}
+
+bool Clustering::is_ball_size(double size_x, double size_y, double size_z) const
+{
+  return (size_x <= 2 * params_.ball_radius &&
+          size_y <= 2 * params_.ball_radius &&
+          size_z <= 2 * params_.ball_radius);
+}
+
+bool Clustering::are_centroids_close(const Point3D &a, const Point3D &b) const
+{
+  double dx = a.x - b.x;
+  double dy = a.y - b.y;
+  double dz = a.z - b.z;
+  double tol = 1e-6;
+  return (dx * dx + dy * dy + dz * dz) < (tol * tol);
+}
+
+Point3D Clustering::calculate_cluster_centroid(const VoxelCluster &cluster)
+{
+  Point3D centroid{0.0f, 0.0f, 0.0f};
+  if (cluster.points.empty())
+  {
+    return centroid;
+  }
+
+  double sum_x = 0.0, sum_y = 0.0, sum_z = 0.0;
+  for (const auto &p : cluster.points)
+  {
+    sum_x += p.x;
+    sum_y += p.y;
+    sum_z += p.z;
+  }
+  double n = static_cast<double>(cluster.points.size());
+  centroid.x = static_cast<float>(sum_x / n);
+  centroid.y = static_cast<float>(sum_y / n);
+  centroid.z = static_cast<float>(sum_z / n);
+  return centroid;
+}
+
+void Clustering::identify_dynamic_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<VoxelCluster> &dynamic_clusters)
+{
+  dynamic_cluster_indices_.clear();
+  for (const auto &dyn_cluster : dynamic_clusters)
+  {
+    Point3D dyn_center = calculate_cluster_centroid(dyn_cluster);
+    for (size_t i = 0; i < clusters.size(); ++i)
+    {
+      Point3D orig_center = calculate_cluster_centroid(clusters[i]);
+      if (are_centroids_close(orig_center, dyn_center))
+      {
+        dynamic_cluster_indices_.insert(i);
+        break;
+      }
+    }
+  }
+}
+
+std::vector<int> Clustering::associate_clusters(const std::vector<VoxelCluster> &current_clusters,
+                                                std::map<int, ClusterTrack> &tracks,
+                                                double max_distance_for_association,
+                                                rclcpp::Time current_time,
+                                                double dt)
+{
+  std::vector<int> assignments(current_clusters.size(), -1);
+  std::vector<bool> track_used(tracks.size(), false);
+
+  std::vector<std::map<int, ClusterTrack>::iterator> track_list;
+  track_list.reserve(tracks.size());
+  for (auto it = tracks.begin(); it != tracks.end(); ++it)
+  {
+    track_list.push_back(it);
+  }
+
+  for (size_t i = 0; i < current_clusters.size(); i++)
+  {
+    Point3D c = calculate_cluster_centroid(current_clusters[i]);
+    double best_dist = std::numeric_limits<double>::max();
+    int best_idx = -1;
+    for (size_t j = 0; j < track_list.size(); j++)
+    {
+      if (track_used[j])
+        continue;
+      Point3D t = track_list[j]->second.last_centroid;
+      double dx = c.x - t.x;
+      double dy = c.y - t.y;
+      double dz = c.z - t.z;
+      double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist < best_dist && dist < max_distance_for_association)
+      {
+        best_dist = dist;
+        best_idx = (int)j;
+      }
+    }
+    if (best_idx >= 0)
+    {
+      assignments[i] = track_list[best_idx]->first;
+      track_used[best_idx] = true;
+      track_list[best_idx]->second.last_update_time = current_time;
+      track_list[best_idx]->second.missing_count = 0;
+    }
+  }
+
+  for (size_t i = 0; i < assignments.size(); i++)
+  {
+    if (assignments[i] < 0)
+    {
+      int new_id = tracks.empty() ? 0 : tracks.rbegin()->first + 1;
+      Point3D c = calculate_cluster_centroid(current_clusters[i]);
+      ClusterTrack new_track{new_id, c, current_time, 0};
+      tracks[new_id] = new_track;
+      assignments[i] = new_id;
+    }
+  }
+
+  for (size_t j = 0; j < track_list.size(); j++)
+  {
+    if (!track_used[j])
+    {
+      track_list[j]->second.missing_count += 1;
+    }
+  }
+
+  return assignments;
+}
+
+std::vector<VoxelCluster> Clustering::filter_by_speed(const std::vector<VoxelCluster> &current_clusters,
+                                                      const std::vector<int> &assignments,
+                                                      std::map<int, ClusterTrack> &tracks,
+                                                      double dt,
+                                                      double speed_threshold)
+{
+  std::vector<VoxelCluster> result;
+  for (size_t i = 0; i < current_clusters.size(); i++)
+  {
+    int id = assignments[i];
+    if (id < 0)
+    {
+      result.push_back(current_clusters[i]);
+      continue;
+    }
+    auto it = tracks.find(id);
+    if (it == tracks.end())
+    {
+      result.push_back(current_clusters[i]);
+      continue;
+    }
+
+    Point3D last_c = it->second.last_centroid;
+    Point3D cur_c = calculate_cluster_centroid(current_clusters[i]);
+    double dx = cur_c.x - last_c.x;
+    double dy = cur_c.y - last_c.y;
+    double dz = cur_c.z - last_c.z;
+    double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+    double speed = dist / dt;
+
+    if (speed >= speed_threshold)
+    {
+      result.push_back(current_clusters[i]);
+    }
+    it->second.last_centroid = cur_c;
+  }
+
+  return result;
 }

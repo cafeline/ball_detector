@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 #include <queue>
+#include <map>
+#include <unordered_set>
 #include "pointcloud_processor/types.hpp"
 
 class VoxelProcessor
@@ -22,23 +24,42 @@ class Clustering
 public:
   Clustering(const Parameters &params);
 
-  // ボクセルをクラスタリング
   std::vector<VoxelCluster> create_voxel_clustering(const std::vector<Point3D> &points, const std::vector<Voxel> &voxels);
 
   void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
-  // クラスタのサイズを計算
   void calculate_cluster_size(const VoxelCluster &cluster, const std::vector<Point3D> &points, double &size_x, double &size_y, double &size_z) const;
+
+  std::vector<VoxelCluster> extract_ball_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &points);
+  void identify_dynamic_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<VoxelCluster> &dynamic_clusters);
+
+  std::vector<int> associate_clusters(const std::vector<VoxelCluster> &current_clusters,
+                                      std::map<int, ClusterTrack> &tracks,
+                                      double max_distance_for_association,
+                                      rclcpp::Time current_time,
+                                      double dt);
+
+  std::vector<VoxelCluster> filter_by_speed(const std::vector<VoxelCluster> &current_clusters,
+                                            const std::vector<int> &assignments,
+                                            std::map<int, ClusterTrack> &tracks,
+                                            double dt,
+                                            double speed_threshold);
+
+  bool is_ball_size(double size_x, double size_y, double size_z) const;
+  Point3D calculate_cluster_centroid(const VoxelCluster &cluster);
+  bool are_centroids_close(const Point3D &a, const Point3D &b) const;
+
+  const std::unordered_set<size_t> &get_ball_cluster_indices() const { return ball_cluster_indices_; }
+  const std::unordered_set<size_t> &get_dynamic_cluster_indices() const { return dynamic_cluster_indices_; }
+  size_t get_ball_cluster_original_index(size_t j) const { return ball_cluster_original_indices_[j]; }
 
 private:
   Parameters params_;
 
-  // 隣接ボクセルのキーを取得
   std::vector<std::string> get_adjacent_voxels(const std::string &key) const;
-
-  // クラスタの有効性を評価
   bool is_valid_cluster(const VoxelCluster &cluster, const std::vector<Point3D> &points) const;
-
-
-  // 点がボクセル内に属するかをチェック
   bool point_in_voxel(const Point3D &point, const Voxel &voxel) const;
+
+  std::unordered_set<size_t> ball_cluster_indices_;
+  std::unordered_set<size_t> dynamic_cluster_indices_;
+  std::vector<size_t> ball_cluster_original_indices_;
 };

@@ -15,6 +15,7 @@
 #include "ball_detector/clustering.hpp"
 #include "pointcloud_processor/types.hpp"
 #include <std_msgs/msg/bool.hpp>
+
 namespace ball_detector
 {
   class BallDetector : public rclcpp::Node
@@ -32,46 +33,33 @@ namespace ball_detector
     void autonomous_callback(const std_msgs::msg::Bool::SharedPtr msg);
 
     std::vector<Point3D> preprocess_pointcloud(const sensor_msgs::msg::PointCloud2 &msg);
-    std::vector<VoxelCluster> extract_ball_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &processed_points);
-    bool is_ball_size(double size_x, double size_y, double size_z) const;
-    void process_clusters(const std::vector<VoxelCluster> &clusters, std::vector<VoxelCluster> &dynamic_clusters, const std::vector<Point3D> &processed_points, const std_msgs::msg::Header &header);
+
+    void process_clusters(const std::vector<VoxelCluster> &clusters, std::vector<VoxelCluster> &dynamic_clusters,
+                          const std::vector<Point3D> &processed_points, const std_msgs::msg::Header &header);
+
     void remove_missing_tracks();
-    void identify_dynamic_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<VoxelCluster> &dynamic_clusters);
-    bool are_centroids_close(const Point3D &a, const Point3D &b) const;
+
     std::vector<Point3D> PC2_to_vector(const sensor_msgs::msg::PointCloud2 &cloud_msg);
     std::vector<Point3D> filter_points(const std::vector<Point3D> &input);
     std::vector<Point3D> voxel_downsample(const std::vector<Point3D> &input);
-    Point3D calculate_centroid(const std::vector<Point3D> &points);
-    Point3D calculate_cluster_centroid(const VoxelCluster &cluster);
+
     visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid, const std_msgs::msg::Header &header);
     visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters);
     visualization_msgs::msg::Marker create_detection_area_marker(const std_msgs::msg::Header &header);
     visualization_msgs::msg::Marker create_trajectory_marker(const std::deque<Point3D> &trajectory, const std_msgs::msg::Header &header);
     visualization_msgs::msg::Marker create_past_points_marker(const std::deque<Point3D> &past_points, const std_msgs::msg::Header &header);
+
     std::vector<Point3D> remove_clustered_points(const std::vector<Point3D> &original_points, const std::vector<VoxelCluster> &clusters);
-    void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
-    void publish_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
+    void publish_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters,
+                         const sensor_msgs::msg::PointCloud2 &remaining_cloud);
     void update_trajectory(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
     visualization_msgs::msg::Marker create_custom_marker(const Point3D &point, const std_msgs::msg::Header &header);
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    Point3D compute_cluster_centroid(const VoxelCluster &cluster);
-    std::vector<int> associate_clusters(const std::vector<VoxelCluster> &current_clusters,
-                                        std::map<int, ClusterTrack> &tracks,
-                                        double max_distance_for_association,
-                                        rclcpp::Time current_time,
-                                        double dt);
-    std::vector<VoxelCluster> filter_by_speed(const std::vector<VoxelCluster> &current_clusters,
-                                              const std::vector<int> &assignments,
-                                              std::map<int, ClusterTrack> &tracks,
-                                              double dt,
-                                              double speed_threshold);
 
     std::vector<Point3D> previous_centroids_;
     rclcpp::Time previous_time_;
     std::mutex centroid_mutex_; // スレッドセーフのためのミューテックス
     std::map<int, ClusterTrack> tracks_;
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     // メンバー変数
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_subscription_;
@@ -93,10 +81,9 @@ namespace ball_detector
     // VoxelProcessor と Clustering のインスタンス
     std::unique_ptr<VoxelProcessor> voxel_processor_;
     std::unique_ptr<Clustering> clustering_;
-    std::unordered_set<size_t> ball_cluster_indices_;
-    std::unordered_set<size_t> dynamic_cluster_indices_;
-    std::vector<size_t> ball_dynamic_cluster_indices_;
 
+    // Clusteringが管理するインデックスを利用する
+    // ボール,動的クラスタなどのインデックスはclustering_経由で取得
     Point3D self_pose_;
     double livox_pitch_ = 0.0;
     double ball_vel_min_ = 0.0;
