@@ -35,12 +35,12 @@ namespace ball_detector
     std::vector<Point3D> preprocess_pointcloud(const sensor_msgs::msg::PointCloud2 &msg);
 
     visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid, const std_msgs::msg::Header &header);
-    visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &all_clusters);
+    visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters);
     visualization_msgs::msg::Marker create_trajectory_marker(const std::deque<Point3D> &trajectory, const std_msgs::msg::Header &header);
     visualization_msgs::msg::Marker create_past_points_marker(const std::deque<Point3D> &past_points, const std_msgs::msg::Header &header);
 
-    void publish_markers(const std::vector<VoxelCluster> &all_clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
-    void update_trajectory(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
+    void publish_markers(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
+    void update_trajectory(const Point3D &centroid, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
 
     std::vector<Point3D> previous_centroids_;
     rclcpp::Time previous_time_;
