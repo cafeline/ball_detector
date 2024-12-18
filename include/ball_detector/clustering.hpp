@@ -23,14 +23,17 @@ class Clustering
 {
 public:
   Clustering(const Parameters &params);
-  void process_clusters(const std::vector<VoxelCluster> &clusters, std::vector<VoxelCluster> &dynamic_clusters, rclcpp::Time current_time, double dt);
+  void process_clusters(const std::vector<Point3D> &processed_points, const std::vector<VoxelCluster> &clusters, rclcpp::Time current_time, double dt);
   void remove_missing_tracks();
   std::vector<VoxelCluster> create_voxel_clustering(const std::vector<Point3D> &points, const std::vector<Voxel> &voxels);
 
   void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
   void calculate_cluster_size(const VoxelCluster &cluster, const std::vector<Point3D> &points, double &size_x, double &size_y, double &size_z) const;
 
-  std::vector<VoxelCluster> extract_ball_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &points);
+  void calc_ball_clusters_indices(const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &points);
+  std::vector<VoxelCluster> extract_ball_clusters(const std::vector<VoxelCluster> &clusters);
+  std::vector<VoxelCluster> extract_dynamic_ball_clusters(const std::vector<VoxelCluster> &clusters);
+  void calc_dynamic_ball_cluster_indices(const std::vector<VoxelCluster> &clusters);
   void identify_dynamic_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<VoxelCluster> &dynamic_clusters);
 
   std::vector<int> associate_clusters(const std::vector<VoxelCluster> &current_clusters,
@@ -51,7 +54,8 @@ public:
 
   const std::unordered_set<size_t> &get_ball_size_cluster_indices() const { return ball_size_cluster_indices_; }
   const std::unordered_set<size_t> &get_dynamic_cluster_indices() const { return dynamic_cluster_indices_; }
-  size_t get_dynamic_ball_cluster_original_index(size_t j) const { return dynamic_ball_cluster_indices_[j]; }
+  const std::unordered_set<size_t> &get_dynamic_ball_cluster_indices() const { return dynamic_ball_cluster_indices_; }
+  // size_t get_dynamic_ball_cluster_original_index(size_t j) const { return dynamic_ball_cluster_indices_[j]; }
 
 private:
   Parameters params_;
@@ -61,6 +65,6 @@ private:
 
   std::unordered_set<size_t> ball_size_cluster_indices_;
   std::unordered_set<size_t> dynamic_cluster_indices_;
-  std::vector<size_t> dynamic_ball_cluster_indices_;
+  std::unordered_set<size_t> dynamic_ball_cluster_indices_;
   std::map<int, ClusterTrack> tracks_;
 };

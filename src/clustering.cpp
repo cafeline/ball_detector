@@ -108,13 +108,14 @@ std::vector<std::string> Clustering::get_adjacent_voxels(const std::string &key)
   return neighbors;
 }
 
-void Clustering::process_clusters(const std::vector<VoxelCluster> &clusters, std::vector<VoxelCluster> &dynamic_clusters, rclcpp::Time current_time, double dt)
+void Clustering::process_clusters(const std::vector<Point3D> &processed_points, const std::vector<VoxelCluster> &clusters, rclcpp::Time current_time, double dt)
 {
+  calc_ball_clusters_indices(clusters, processed_points);
+  std::vector<VoxelCluster> ball_clusters = extract_ball_clusters(clusters);
   // clustering側でアソシエーション
   std::vector<int> assignments = associate_clusters(clusters, tracks_, params_.max_distance_for_association, current_time, dt);
   remove_missing_tracks();
-
-  dynamic_clusters = filter_by_speed(clusters, assignments, tracks_, dt, params_.ball_vel_min);
+  std::vector<VoxelCluster> dynamic_clusters = filter_by_speed(clusters, assignments, tracks_, dt, params_.ball_vel_min);
   identify_dynamic_clusters(clusters, dynamic_clusters);
 }
 
@@ -180,26 +181,6 @@ bool Clustering::point_in_voxel(const Point3D &point, const Voxel &voxel) const
          point.z < params_.min_z + (voxel.z + 1) * params_.voxel_size_z;
 }
 
-std::vector<VoxelCluster> Clustering::extract_ball_clusters(const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &points)
-{
-  std::vector<VoxelCluster> ball_clusters;
-  ball_size_cluster_indices_.clear();
-  dynamic_ball_cluster_indices_.clear();
-
-  for (size_t i = 0; i < clusters.size(); ++i)
-  {
-    double size_x, size_y, size_z;
-    calculate_cluster_size(clusters[i], points, size_x, size_y, size_z);
-    if (is_ball_size(size_x, size_y, size_z))
-    {
-      ball_clusters.push_back(clusters[i]);
-      ball_size_cluster_indices_.insert(i);
-      dynamic_ball_cluster_indices_.push_back(i);
-    }
-  }
-  return ball_clusters;
-}
-
 bool Clustering::is_ball_size(double size_x, double size_y, double size_z) const
 {
   return (size_x <= 2 * params_.ball_radius &&
@@ -252,6 +233,72 @@ void Clustering::identify_dynamic_clusters(const std::vector<VoxelCluster> &clus
         dynamic_cluster_indices_.insert(i);
         break;
       }
+    }
+  }
+}
+
+std::vector<VoxelCluster> Clustering::extract_ball_clusters(const std::vector<VoxelCluster> &clusters)
+{
+  std::vector<VoxelCluster> ball_clusters;
+  const auto &ball_indices = get_ball_size_cluster_indices();
+
+  for (size_t i = 0; i < clusters.size(); ++i)
+  {
+    bool is_ball_cluster = (ball_indices.find(i) != ball_indices.end());
+    if (is_ball_cluster)
+    {
+      ball_clusters.push_back(clusters[i]);
+    }
+  }
+  return ball_clusters;
+}
+
+std::vector<VoxelCluster> Clustering::extract_dynamic_ball_clusters(const std::vector<VoxelCluster> &clusters)
+{
+  std::vector<VoxelCluster> dynamic_ball_clusters;
+  const auto &dynamic_ball_indices = get_dynamic_ball_cluster_indices();
+
+  for (size_t i = 0; i < clusters.size(); ++i)
+  {
+    bool is_dynamic_ball_cluster = (dynamic_ball_indices.find(i) != dynamic_ball_indices.end());
+    if (is_dynamic_ball_cluster)
+    {
+      dynamic_ball_clusters.push_back(clusters[i]);
+    }
+  }
+  return dynamic_ball_clusters;
+}
+
+void Clustering::calc_ball_clusters_indices(const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &points)
+{
+  ball_size_cluster_indices_.clear();
+
+  for (size_t i = 0; i < clusters.size(); ++i)
+  {
+    double size_x, size_y, size_z;
+    calculate_cluster_size(clusters[i], points, size_x, size_y, size_z);
+    if (is_ball_size(size_x, size_y, size_z))
+    {
+      ball_size_cluster_indices_.insert(i);
+    }
+  }
+}
+
+void Clustering::calc_dynamic_ball_cluster_indices(const std::vector<VoxelCluster> &clusters)
+{
+  const auto &ball_indices = get_ball_size_cluster_indices();
+  const auto &dynamic_indices = get_dynamic_cluster_indices();
+
+  dynamic_ball_cluster_indices_.clear();
+
+  for (size_t i = 0; i < clusters.size(); ++i)
+  {
+    bool is_ball_cluster = (ball_indices.find(i) != ball_indices.end());
+    bool is_dynamic = (dynamic_indices.find(i) != dynamic_indices.end());
+
+    if (is_ball_cluster && is_dynamic)
+    {
+      dynamic_ball_cluster_indices_.insert(i);
     }
   }
 }

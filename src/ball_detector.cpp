@@ -63,16 +63,12 @@ namespace ball_detector
     std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
     std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
 
-    // ボールサイズのクラスタ抽出はclustering側に移行
-    // 動的クラスタ判定もclustering側で行う
-    // associate_clusters, filter_by_speed, identify_dynamic_clusters などもclustering側にあるとする
-    std::vector<VoxelCluster> ball_clusters = clustering_->extract_ball_clusters(clusters, processed_points);
-    std::vector<VoxelCluster> dynamic_clusters;
-
     rclcpp::Time current_time = this->now();
     double dt = (previous_time_.nanoseconds() == 0) ? 0.0 : (current_time - previous_time_).seconds();
     previous_time_ = current_time;
-    clustering_->process_clusters(clusters, dynamic_clusters, current_time, dt);
+    clustering_->process_clusters(processed_points, clusters, current_time, dt);
+    clustering_->calc_dynamic_ball_cluster_indices(clusters);
+    std::vector<VoxelCluster> dynamic_ball_clusters = clustering_->extract_dynamic_ball_clusters(clusters);
 
     // 残りの点群をPointCloud2形式に変換してパブリッシュ
     PointCloudProcessor processor(params_);
@@ -80,10 +76,10 @@ namespace ball_detector
     filtered_cloud_publisher_->publish(remaining_cloud);
 
     // マーカーのパブリッシュ
-    publish_markers(clusters, ball_clusters, remaining_cloud);
+    publish_markers(clusters, remaining_cloud);
 
     // 軌道と過去の検出点の更新
-    update_trajectory(dynamic_clusters, remaining_cloud);
+    update_trajectory(clusters, remaining_cloud);
   }
 
   std::vector<Point3D> BallDetector::preprocess_pointcloud(const sensor_msgs::msg::PointCloud2 &msg)
@@ -115,35 +111,47 @@ namespace ball_detector
     is_autonomous = msg->data;
   }
 
-  void BallDetector::publish_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters,
-                                     const sensor_msgs::msg::PointCloud2 &remaining_cloud)
+  void BallDetector::publish_markers(const std::vector<VoxelCluster> &all_clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
   {
-    visualization_msgs::msg::MarkerArray voxel_marker_array = create_voxel_cluster_markers(all_clusters, ball_clusters);
+    visualization_msgs::msg::MarkerArray voxel_marker_array = create_voxel_cluster_markers(all_clusters);
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
-    const auto &dynamic_indices = clustering_->get_dynamic_cluster_indices();
-    const auto &ball_indices = clustering_->get_ball_size_cluster_indices();
+    const auto &dynamic_ball_indices = clustering_->get_dynamic_ball_cluster_indices();
+    // 動的なボールクラスタの中でx座標が最も小さいクラスタを選択
+    VoxelCluster selected_ball_cluster;
 
-    for (size_t j = 0; j < ball_clusters.size(); ++j)
+    double min_x = std::numeric_limits<double>::max();
+    for (size_t j = 0; j < all_clusters.size(); ++j)
     {
-      size_t orig_idx = clustering_->get_dynamic_ball_cluster_original_index(j);
-      if (dynamic_indices.find(orig_idx) == dynamic_indices.end())
+      bool is_dynamic_ball = (dynamic_ball_indices.find(j) != dynamic_ball_indices.end());
+      if (!is_dynamic_ball)
       {
         continue;
       }
 
-      if (ball_clusters[j].points.empty())
-      {
-        continue;
-      }
+      // クラスタの重心を計算
+      Point3D centroid = clustering_->calculate_cluster_centroid(all_clusters[j]);
 
-      Point3D centroid = clustering_->calculate_cluster_centroid(ball_clusters[j]);
+      // 最小のxを持つクラスタを選択
+      if (centroid.x < min_x)
+      {
+        min_x = centroid.x;
+        selected_ball_cluster = all_clusters[j];
+      }
+    }
+
+    // 最小xのクラスタが存在する場合のみ処理を続行
+    if (!selected_ball_cluster.points.empty())
+    {
+      // RCLCPP_INFO(this->get_logger(), "Selected ball with smallest x: %f", min_x);
+
+      Point3D centroid = clustering_->calculate_cluster_centroid(selected_ball_cluster);
       visualization_msgs::msg::Marker marker = create_ball_marker(centroid, remaining_cloud.header);
       ball_publisher_->publish(marker);
     }
   }
 
-  visualization_msgs::msg::MarkerArray BallDetector::create_voxel_cluster_markers(const std::vector<VoxelCluster> &all_clusters, const std::vector<VoxelCluster> &ball_clusters)
+  visualization_msgs::msg::MarkerArray BallDetector::create_voxel_cluster_markers(const std::vector<VoxelCluster> &all_clusters)
   {
     visualization_msgs::msg::MarkerArray marker_array;
 
@@ -236,27 +244,25 @@ namespace ball_detector
 
   void BallDetector::update_trajectory(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
   {
-    const auto &ball_indices = clustering_->get_ball_size_cluster_indices();
-    const auto &dynamic_indices = clustering_->get_dynamic_cluster_indices();
+    const auto &dynamic_ball_indices = clustering_->get_dynamic_ball_cluster_indices();
 
-    VoxelCluster ball_cluster;
+    VoxelCluster dynamic_ball_cluster;
     for (size_t i = 0; i < clusters.size(); ++i)
     {
-      bool is_ball = (ball_indices.find(i) != ball_indices.end());
-      bool is_dynamic = (dynamic_indices.find(i) != dynamic_indices.end());
+      bool is_dynamic_ball = (dynamic_ball_indices.find(i) != dynamic_ball_indices.end());
 
-      if (is_ball && is_dynamic)
+      if (is_dynamic_ball)
       {
         for (const auto &point : clusters[i].points)
         {
-          ball_cluster.points.push_back(point);
+          dynamic_ball_cluster.points.push_back(point);
         }
       }
     }
 
-    if (!ball_cluster.points.empty())
+    if (!dynamic_ball_cluster.points.empty())
     {
-      Point3D centroid = clustering_->calculate_cluster_centroid(ball_cluster);
+      Point3D centroid = clustering_->calculate_cluster_centroid(dynamic_ball_cluster);
 
       const size_t MAX_TRAJECTORY_POINTS = 200;
       if (ball_trajectory_points_.size() >= MAX_TRAJECTORY_POINTS)
