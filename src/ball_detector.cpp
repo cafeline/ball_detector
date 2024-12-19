@@ -151,14 +151,15 @@ namespace ball_detector
 
     const auto &ball_indices = clustering_->get_ball_size_cluster_indices();
     const auto &dynamic_indices = clustering_->get_dynamic_cluster_indices();
+    const auto &dynamic_ball_indices = clustering_->get_dynamic_ball_cluster_indices();
 
     for (size_t i = 0; i < clusters.size(); ++i)
     {
       bool is_ball_cluster = (ball_indices.find(i) != ball_indices.end());
       bool is_dynamic = (dynamic_indices.find(i) != dynamic_indices.end());
-
+      bool is_dynamic_ball = (dynamic_ball_indices.find(i) != dynamic_ball_indices.end());
       float r, g, b;
-      if (is_ball_cluster && is_dynamic)
+      if (is_dynamic_ball)
       {
         r = 0.0f;
         g = 1.0f;

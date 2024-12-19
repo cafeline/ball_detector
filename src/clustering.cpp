@@ -130,7 +130,7 @@ void Clustering::remove_missing_tracks()
 {
   for (auto it = tracks_.begin(); it != tracks_.end();)
   {
-    if (it->second.missing_count > 15)
+    if (it->second.missing_count > 50)
       it = tracks_.erase(it);
     else
       ++it;
