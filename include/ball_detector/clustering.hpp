@@ -52,6 +52,8 @@ public:
   bool is_ball_size(double size_x, double size_y, double size_z) const;
   Point3D calculate_cluster_centroid(const VoxelCluster &cluster);
   bool are_centroids_close(const Point3D &a, const Point3D &b) const;
+  void filter_dynamic_ball_clusters_near_boundaries(const std::vector<VoxelCluster> &clusters);
+  void refine_ball_clusters(std::vector<VoxelCluster> &clusters, const Point3D &ball_position);
 
   const std::unordered_set<size_t> &get_ball_size_cluster_indices() const { return ball_size_cluster_indices_; }
   const std::unordered_set<size_t> &get_dynamic_cluster_indices() const { return dynamic_cluster_indices_; }

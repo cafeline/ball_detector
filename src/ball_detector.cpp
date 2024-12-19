@@ -64,6 +64,7 @@ namespace ball_detector
     std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
     clustering_->process_clusters(processed_points, clusters, current_time, dt);
     Point3D ball_position = calculate_ball_position(clusters);
+    clustering_->refine_ball_clusters(clusters, ball_position);
 
     // 残りの点群をPointCloud2形式に変換してパブリッシュ
     PointCloudProcessor processor(params_);
