@@ -63,6 +63,7 @@ namespace ball_detector
     std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
     std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
     clustering_->process_clusters(processed_points, clusters, current_time, dt);
+    Point3D ball_position = calculate_ball_position(clusters);
 
     // 残りの点群をPointCloud2形式に変換してパブリッシュ
     PointCloudProcessor processor(params_);
@@ -70,17 +71,17 @@ namespace ball_detector
     filtered_cloud_publisher_->publish(remaining_cloud);
 
     // マーカーのパブリッシュ
-    publish_markers(clusters, remaining_cloud);
+    publish_markers(ball_position, clusters, remaining_cloud);
   }
 
   std::vector<Point3D> BallDetector::preprocess_pointcloud(const sensor_msgs::msg::PointCloud2 &msg)
   {
     PointCloudProcessor processor(params_);
     auto tmp_points = processor.PC2_to_vector(msg);
-    auto filtered_points = processor.filter_points_base_origin(self_pose_.x, self_pose_.y, self_pose_.z, tmp_points);
+    auto rotated_points = processor.rotate_pitch(tmp_points, livox_pitch_);
+    auto filtered_points = processor.filter_points_base_origin(self_pose_.x, self_pose_.y, self_pose_.z, rotated_points);
     auto transformed_points = processor.transform_pointcloud(self_pose_.x, self_pose_.y, self_pose_.z, filtered_points);
-    auto rotated_points = processor.rotate_pitch(transformed_points, livox_pitch_);
-    return rotated_points;
+    return transformed_points;
   }
 
   void BallDetector::pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -103,46 +104,52 @@ namespace ball_detector
     is_autonomous = msg->data;
   }
 
-  void BallDetector::publish_markers(const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
+  void BallDetector::publish_markers(Point3D &ball_position, const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
   {
     visualization_msgs::msg::MarkerArray voxel_marker_array = create_voxel_cluster_markers(clusters);
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
+    if (ball_position.x == 0.0 && ball_position.y == 0.0 && ball_position.z == 0.0)
+    {
+      return;
+    }
+
+    visualization_msgs::msg::Marker marker = create_ball_marker(ball_position, remaining_cloud.header);
+    ball_publisher_->publish(marker);
+
+    update_trajectory(ball_position, remaining_cloud);
+  }
+
+  Point3D BallDetector::calculate_ball_position(const std::vector<VoxelCluster> &clusters)
+  {
     const auto &dynamic_ball_indices = clustering_->get_dynamic_ball_cluster_indices();
-    // 動的なボールクラスタの中でx座標が最も小さいクラスタを選択
-    VoxelCluster selected_ball_cluster;
+    std::vector<Point3D> candidate_points;
 
-    double min_x = std::numeric_limits<double>::max();
-    for (size_t j = 0; j < clusters.size(); ++j)
+    // 動的かつボール以下のサイズのクラスタから全ての点を収集
+    for (const auto &index : dynamic_ball_indices)
     {
-      bool is_dynamic_ball = (dynamic_ball_indices.find(j) != dynamic_ball_indices.end());
-      if (!is_dynamic_ball)
-      {
-        continue;
-      }
-
-      // クラスタの重心を計算
-      Point3D centroid = clustering_->calculate_cluster_centroid(clusters[j]);
-
-      // 最小のxを持つクラスタを選択
-      if (centroid.x < min_x)
-      {
-        min_x = centroid.x;
-        selected_ball_cluster = clusters[j];
-      }
+      const VoxelCluster &cluster = clusters[index];
+      candidate_points.insert(candidate_points.end(),
+                              cluster.points.begin(),
+                              cluster.points.end());
     }
 
-    // 最小xのクラスタが存在する場合のみ処理を続行
-    Point3D selected_centroid;
-    if (!selected_ball_cluster.points.empty())
+    if (candidate_points.size() < 2)
     {
-      // 選択されたクラスタの重心を計算
-      selected_centroid = clustering_->calculate_cluster_centroid(selected_ball_cluster);
-
-      visualization_msgs::msg::Marker marker = create_ball_marker(selected_centroid, remaining_cloud.header);
-      ball_publisher_->publish(marker);
+      // RCLCPP_WARN(this->get_logger(), "候補点が2点未満のため、ボールを検出できません。");
+      return Point3D{0.0, 0.0, 0.0}; // 無効な位置を示す
     }
-    update_trajectory(selected_centroid, remaining_cloud);
+
+    // x座標でソート
+    std::sort(candidate_points.begin(), candidate_points.end(),
+              [](const Point3D &a, const Point3D &b)
+              { return a.x < b.x; });
+
+    // 最小のxを持つ2点を選択し平均値を計算
+    const Point3D &point1 = candidate_points[0];
+    const Point3D &point2 = candidate_points[1];
+
+    return Point3D{(point1.x + point2.x) / 2.0, (point1.y + point2.y) / 2.0, (point1.z + point2.z) / 2.0};
   }
 
   visualization_msgs::msg::MarkerArray BallDetector::create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters)
