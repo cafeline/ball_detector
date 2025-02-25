@@ -1,5 +1,4 @@
 #include "ball_detector/ball_detector.hpp"
-#include "pointcloud_processor/pointcloud_processor.hpp"
 #include <chrono>
 #include <unordered_set>
 #include <random>
@@ -52,8 +51,8 @@ namespace ball_detector
 
   void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
-    if (!is_autonomous)
-       return;
+    // if (!is_autonomous)
+    //   return;
     auto start = std::chrono::high_resolution_clock::now();
     rclcpp::Time current_time = this->now();
     double dt = (previous_time_.nanoseconds() == 0) ? 0.0 : (current_time - previous_time_).seconds();
@@ -74,7 +73,7 @@ namespace ball_detector
 
     // マーカーのパブリッシュ
     publish_markers(ball_position, clusters, remaining_cloud);
-    RCLCPP_INFO(this->get_logger(), "exec time: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
+    // RCLCPP_INFO(this->get_logger(), "exec time: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
   }
 
   std::vector<Point3D> BallDetector::preprocess_pointcloud(const sensor_msgs::msg::PointCloud2 &msg)

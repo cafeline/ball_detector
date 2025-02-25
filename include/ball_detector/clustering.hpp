@@ -5,7 +5,7 @@
 #include <queue>
 #include <map>
 #include <unordered_set>
-#include "pointcloud_processor/types.hpp"
+#include "ball_detector/pointcloud_processor.hpp"
 
 class VoxelProcessor
 {
