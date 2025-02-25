@@ -1,5 +1,4 @@
 #include "ball_detector/ball_detector.hpp"
-#include "pointcloud_processor/pointcloud_processor.hpp"
 #include <chrono>
 #include <unordered_set>
 #include <random>
@@ -52,6 +51,7 @@ namespace ball_detector
 
   void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
+    RCLCPP_INFO(this->get_logger(), "Received pointcloud data.");
     // if (!is_autonomous)
     //   return;
     rclcpp::Time current_time = this->now();

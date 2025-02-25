@@ -13,7 +13,7 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include "ball_detector/clustering.hpp"
-#include "pointcloud_processor/types.hpp"
+#include "ball_detector/pointcloud_processor.hpp"
 #include <std_msgs/msg/bool.hpp>
 
 namespace ball_detector
