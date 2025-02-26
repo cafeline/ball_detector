@@ -46,7 +46,6 @@ namespace ball_detector
     params_.ball_radius = this->get_parameter("ball_radius").as_double();
     params_.ball_vel_min = this->get_parameter("ball_vel_min").as_double();
     params_.max_distance_for_association = this->get_parameter("max_distance_for_association").as_double();
-    params_.missing_count_threshold = this->get_parameter("missing_count_threshold").as_int();
   }
 
   void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
