@@ -19,5 +19,4 @@ public:
 
 private:
   Parameters params_;
-  std::vector<Point3D> downsampled_points_;
 };
