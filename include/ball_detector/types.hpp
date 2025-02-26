@@ -73,15 +73,9 @@ struct Parameters
   double min_x, max_x, min_y, max_y, min_z, max_z;
   double voxel_size_x, voxel_size_y, voxel_size_z;
 
-  double D_voxel_size_x, D_voxel_size_y, D_voxel_size_z;
   int voxel_search_range;
   double ball_radius;
 
-  double landmark_width, landmark_height;
-  double width_tolerance, height_tolerance;
-  double laser_weight, odom_weight_liner, odom_weight_angler;
-  int plane_iterations, line_iterations;
-  double odom2laser_x, odom2laser_y;
   double max_distance_for_association;
   int missing_count_threshold;
   double ball_vel_min;

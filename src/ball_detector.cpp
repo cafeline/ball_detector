@@ -205,7 +205,7 @@ namespace ball_detector
         marker.color.b = b;
         marker.color.a = 0.3;
 
-        marker.lifetime = rclcpp::Duration(0, 0);
+        marker.lifetime = rclcpp::Duration(0, 1e8);
 
         marker_array.markers.push_back(marker);
       }
