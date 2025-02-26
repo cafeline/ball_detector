@@ -29,4 +29,7 @@ private:
   std::map<int, ClusterTrack> tracks_;
 
   Point3D calculateClusterCentroid(const VoxelCluster &cluster);
+  double calculateDistance(const Point3D &p1, const Point3D &p2);
+  int createNewTrack(const VoxelCluster &cluster, rclcpp::Time current_time);
+  void updateTrack(int track_id, const Point3D &centroid, rclcpp::Time current_time);
 };

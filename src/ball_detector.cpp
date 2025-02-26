@@ -11,20 +11,8 @@ namespace ball_detector
   BallDetector::BallDetector(const std::string &name_space, const rclcpp::NodeOptions &options)
       : rclcpp::Node("ball_detector", name_space, options)
   {
-    subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-        "/livox/lidar", 10, std::bind(&BallDetector::pointcloud_callback, this, std::placeholders::_1));
-    pose_subscription_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "/self_pose", 10, std::bind(&BallDetector::pose_callback, this, std::placeholders::_1));
-    autonomous_subscription_ = this->create_subscription<std_msgs::msg::Bool>(
-        "autonomous", 10, std::bind(&BallDetector::autonomous_callback, this, std::placeholders::_1));
-
-    ball_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("tennis_ball", 10);
-    filtered_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("ball_detector_pointcloud", 10);
-    trajectory_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("ball_trajectory", 10);
-    past_points_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("past_ball_points", 10);
-    clustered_voxel_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("clustered_voxel", 10);
-
     load_parameters();
+    setup_publishers_and_subscribers();
 
     voxel_processor_ = std::make_unique<VoxelProcessor>(params_);
     clustering_ = std::make_unique<Clustering>(params_);
@@ -48,31 +36,69 @@ namespace ball_detector
     params_.max_distance_for_association = this->get_parameter("max_distance_for_association").as_double();
   }
 
+  void BallDetector::setup_publishers_and_subscribers()
+  {
+    // サブスクリプションの設定
+    subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+        "/livox/lidar", 10, std::bind(&BallDetector::pointcloud_callback, this, std::placeholders::_1));
+    pose_subscription_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        "/self_pose", 10, std::bind(&BallDetector::pose_callback, this, std::placeholders::_1));
+    autonomous_subscription_ = this->create_subscription<std_msgs::msg::Bool>(
+        "autonomous", 10, std::bind(&BallDetector::autonomous_callback, this, std::placeholders::_1));
+
+    // パブリッシャーの設定
+    ball_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("tennis_ball", 10);
+    filtered_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("ball_detector_pointcloud", 10);
+    trajectory_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("ball_trajectory", 10);
+    past_points_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("past_ball_points", 10);
+    clustered_voxel_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("clustered_voxel", 10);
+  }
+
   void BallDetector::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
     // if (!is_autonomous)
     //   return;
+
     auto start = std::chrono::high_resolution_clock::now();
     rclcpp::Time current_time = this->now();
     double dt = (previous_time_.nanoseconds() == 0) ? 0.0 : (current_time - previous_time_).seconds();
     previous_time_ = current_time;
 
+    // ポイントクラウドの処理
     PointCloudProcessor processor(params_);
     std::vector<Point3D> processed_points = processor.process(msg, self_pose_.x, self_pose_.y, self_pose_.z);
-    // ボクセル化 & クラスタリング
-    std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
-    std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
-    clustering_->process_clusters(processed_points, clusters, current_time, dt);
-    Point3D ball_position = calculate_ball_position(clusters);
-    clustering_->refine_ball_clusters(clusters, ball_position);
+
+    // ボール検出
+    Point3D ball_position = detect_ball(processed_points, current_time, dt);
 
     // 残りの点群をPointCloud2形式に変換してパブリッシュ
     sensor_msgs::msg::PointCloud2 remaining_cloud = processor.vector_to_PC2(processed_points);
     filtered_cloud_publisher_->publish(remaining_cloud);
 
-    // マーカーのパブリッシュ
-    publish_markers(ball_position, clusters, remaining_cloud);
+    // 視覚化
+    publish_visualization(ball_position, clustering_->get_clusters(), remaining_cloud);
+
     // RCLCPP_INFO(this->get_logger(), "exec time: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
+  }
+
+  Point3D BallDetector::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)
+  {
+    // ボクセル化
+    std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
+
+    // クラスタリング
+    std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
+
+    // クラスタの処理
+    clustering_->process_clusters(processed_points, clusters, current_time, dt);
+
+    // ボール位置の計算
+    Point3D ball_position = calculate_ball_position(clusters);
+
+    // ボールクラスタの精緻化
+    clustering_->refine_ball_clusters(clusters, ball_position);
+
+    return ball_position;
   }
 
   void BallDetector::pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -81,10 +107,12 @@ namespace ball_detector
     double x = msg->pose.orientation.x;
     double y = msg->pose.orientation.y;
     double z = msg->pose.orientation.z;
+
     // ヨー角の算出
     double siny_cosp = 2.0 * (w * z + x * y);
     double cosy_cosp = 1.0 - 2.0 * (y * y + z * z);
     double yaw = std::atan2(siny_cosp, cosy_cosp);
+
     self_pose_.x = msg->pose.position.x;
     self_pose_.y = msg->pose.position.y;
     self_pose_.z = yaw;
@@ -95,7 +123,8 @@ namespace ball_detector
     is_autonomous = msg->data;
   }
 
-  void BallDetector::publish_markers(Point3D &ball_position, const std::vector<VoxelCluster> &clusters, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
+  void BallDetector::publish_visualization(Point3D &ball_position, const std::vector<VoxelCluster> &clusters,
+                                           const sensor_msgs::msg::PointCloud2 &cloud_msg)
   {
     visualization_msgs::msg::MarkerArray voxel_marker_array = create_voxel_cluster_markers(clusters);
     clustered_voxel_publisher_->publish(voxel_marker_array);
@@ -105,10 +134,10 @@ namespace ball_detector
       return;
     }
 
-    visualization_msgs::msg::Marker marker = create_ball_marker(ball_position, remaining_cloud.header);
+    visualization_msgs::msg::Marker marker = create_ball_marker(ball_position, cloud_msg.header);
     ball_publisher_->publish(marker);
 
-    update_trajectory(ball_position, remaining_cloud);
+    update_trajectory(ball_position, cloud_msg);
   }
 
   Point3D BallDetector::calculate_ball_position(const std::vector<VoxelCluster> &clusters)

@@ -30,5 +30,6 @@ public:
   void transform_pointcloud(double x, double y, double angle, std::vector<Point3D> &points) const;
 
 private:
+  void calculate_rotation(double angle, double &cos_val, double &sin_val) const;
   Parameters params_;
 };

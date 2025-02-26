@@ -58,6 +58,9 @@ public:
   const std::unordered_set<size_t> &get_dynamic_cluster_indices() const { return dynamic_cluster_indices_; }
   const std::unordered_set<size_t> &get_dynamic_ball_cluster_indices() const { return dynamic_ball_cluster_indices_; }
 
+  // クラスタを取得するメソッドを追加
+  const std::vector<VoxelCluster> &get_clusters() const { return current_clusters_; }
+
   // ボクセル操作ユーティリティ
   bool point_in_voxel(const Point3D &point, const Voxel &voxel) const;
   std::vector<std::string> get_voxel_neighbors(int cx, int cy, int cz);
@@ -97,6 +100,9 @@ private:
 
   // ボクセル隣接性
   std::vector<std::string> get_adjacent_voxels(const std::string &key) const;
+
+  // 現在のクラスタを保持するメンバ変数を追加
+  std::vector<VoxelCluster> current_clusters_;
 };
 
 #endif // CLUSTERING_HPP

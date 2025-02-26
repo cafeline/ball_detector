@@ -20,6 +20,9 @@ void Clustering::process_clusters(const std::vector<Point3D> &processed_points,
                                   rclcpp::Time current_time,
                                   double dt)
 {
+  // 現在のクラスタを保存
+  current_clusters_ = clusters;
+
   // ボールクラスタのインデックス計算
   calc_ball_clusters_indices(clusters, processed_points);
 

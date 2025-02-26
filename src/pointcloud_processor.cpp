@@ -40,6 +40,13 @@ std::vector<Voxel> VoxelProcessor::create_voxel(const std::vector<Point3D> &poin
 
 PointCloudProcessor::PointCloudProcessor(const Parameters &params) : params_(params) {}
 
+// コサインとサインの計算を一度にするためのヘルパー
+void PointCloudProcessor::calculate_rotation(double angle, double &cos_val, double &sin_val) const
+{
+  cos_val = std::cos(angle);
+  sin_val = std::sin(angle);
+}
+
 std::vector<Point3D> PointCloudProcessor::process(const sensor_msgs::msg::PointCloud2::SharedPtr &msg, double self_x, double self_y, double self_angle) const
 {
   auto points = PC2_to_vector(*msg);
@@ -110,25 +117,23 @@ std::vector<Point3D> PointCloudProcessor::PC2_to_vector(const sensor_msgs::msg::
 
 void PointCloudProcessor::rotate_pitch(std::vector<Point3D> &points) const
 {
+  double cos_angle, sin_angle;
   double angle_rad = params_.livox_pitch * M_PI / 180.0;
-  double cos_angle = std::cos(angle_rad);
-  double sin_angle = std::sin(angle_rad);
+  calculate_rotation(angle_rad, cos_angle, sin_angle);
 
-  // 各点を直接更新
   for (auto &point : points)
   {
     float old_x = point.x;
     float old_z = point.z;
     point.x = old_x * cos_angle + old_z * sin_angle;
     point.z = -old_x * sin_angle + old_z * cos_angle;
-    // point.y は変化なし
   }
 }
 
 void PointCloudProcessor::filter_points_base_origin(double x, double y, double angle, std::vector<Point3D> &points) const
 {
-  double cos_angle = std::cos(angle);
-  double sin_angle = std::sin(angle);
+  double cos_angle, sin_angle;
+  calculate_rotation(angle, cos_angle, sin_angle);
 
   double temp_min_x = params_.min_x - x;
   double temp_min_y = params_.min_y - y;
@@ -138,38 +143,38 @@ void PointCloudProcessor::filter_points_base_origin(double x, double y, double a
   double temp_max_z = params_.max_z;
   const double exclusion_radius_sq = 1.0 * 1.0;
 
-  auto new_end = std::remove_if(points.begin(), points.end(), [&](const Point3D &point)
-                                {
-        double rotated_x = point.x * cos_angle + point.y * sin_angle;
-        double rotated_y = point.x * sin_angle - point.y * cos_angle;
-        double rotated_z = point.z;
+  auto is_point_invalid = [&](const Point3D &point)
+  {
+    double rotated_x = point.x * cos_angle + point.y * sin_angle;
+    double rotated_y = point.x * sin_angle - point.y * cos_angle;
+    double rotated_z = point.z;
 
-        bool within_bounds = (rotated_x != 0.0 && rotated_y != 0.0 && rotated_z != 0.0) &&
-                             (rotated_x >= temp_min_x && rotated_x <= temp_max_x) &&
-                             (rotated_y >= temp_min_y && rotated_y <= temp_max_y) &&
-                             (rotated_z >= temp_min_z && rotated_z <= temp_max_z);
+    bool within_bounds = (rotated_x != 0.0 && rotated_y != 0.0 && rotated_z != 0.0) &&
+                         (rotated_x >= temp_min_x && rotated_x <= temp_max_x) &&
+                         (rotated_y >= temp_min_y && rotated_y <= temp_max_y) &&
+                         (rotated_z >= temp_min_z && rotated_z <= temp_max_z);
 
-        double distance_squared = point.x * point.x + point.y * point.y + point.z * point.z;
-        bool outside_exclusion = (distance_squared >= exclusion_radius_sq);
+    double distance_squared = point.x * point.x + point.y * point.y + point.z * point.z;
+    bool outside_exclusion = (distance_squared >= exclusion_radius_sq);
 
-        // 条件を満たさない場合は削除
-        return !(within_bounds && outside_exclusion); });
+    return !(within_bounds && outside_exclusion);
+  };
 
-  points.erase(new_end, points.end());
+  points.erase(
+      std::remove_if(points.begin(), points.end(), is_point_invalid),
+      points.end());
 }
 
 void PointCloudProcessor::transform_pointcloud(double x, double y, double angle, std::vector<Point3D> &points) const
 {
-  double cos_angle = std::cos(angle);
-  double sin_angle = std::sin(angle);
+  double cos_angle, sin_angle;
+  calculate_rotation(angle, cos_angle, sin_angle);
 
-  // 各点を回転＆平行移動
   for (auto &point : points)
   {
     float old_x = point.x;
     float old_y = point.y;
     point.x = old_x * cos_angle - old_y * sin_angle + x;
     point.y = old_x * sin_angle + old_y * cos_angle + y;
-    // point.z は変化なし
   }
 }
