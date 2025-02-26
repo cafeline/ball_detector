@@ -7,6 +7,37 @@
 #include <chrono>
 #include <rclcpp/rclcpp.hpp>
 
+VoxelProcessor::VoxelProcessor(const Parameters &params) : params_(params) {}
+
+std::vector<Voxel> VoxelProcessor::create_voxel(const std::vector<Point3D> &points)
+{
+  std::unordered_map<std::string, Voxel> occupied_voxels;
+  for (const auto &point : points)
+  {
+    int vx = static_cast<int>((point.x - params_.min_x) / params_.voxel_size_x);
+    int vy = static_cast<int>((point.y - params_.min_y) / params_.voxel_size_y);
+    int vz = static_cast<int>((point.z - params_.min_z) / params_.voxel_size_z);
+    std::string key = std::to_string(vx) + "," + std::to_string(vy) + "," + std::to_string(vz);
+    if (occupied_voxels.find(key) == occupied_voxels.end())
+    {
+      occupied_voxels[key] = Voxel(vx, vy, vz);
+    }
+    else
+    {
+      occupied_voxels[key].increment();
+    }
+  }
+
+  std::vector<Voxel> result;
+  result.reserve(occupied_voxels.size());
+  for (const auto &pair : occupied_voxels)
+  {
+    result.push_back(pair.second);
+  }
+
+  return result;
+}
+
 PointCloudProcessor::PointCloudProcessor(const Parameters &params) : params_(params) {}
 
 std::vector<Point3D> PointCloudProcessor::process(const sensor_msgs::msg::PointCloud2::SharedPtr &msg, double self_x, double self_y, double self_angle) const

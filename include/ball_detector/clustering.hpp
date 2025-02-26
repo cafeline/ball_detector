@@ -7,17 +7,6 @@
 #include "ball_detector/cluster_tracking.hpp"
 #include <rclcpp/rclcpp.hpp>
 
-class VoxelProcessor
-{
-public:
-  VoxelProcessor(const Parameters &params);
-
-  std::vector<Voxel> create_voxel(const std::vector<Point3D> &points);
-
-private:
-  Parameters params_;
-};
-
 class Clustering
 {
 public:
