@@ -9,10 +9,10 @@
 
 PointCloudProcessor::PointCloudProcessor(const Parameters &params) : params_(params) {}
 
-std::vector<Point3D> PointCloudProcessor::process(const sensor_msgs::msg::PointCloud2::SharedPtr &msg, double self_x, double self_y, double self_angle, int livox_pitch) const
+std::vector<Point3D> PointCloudProcessor::process(const sensor_msgs::msg::PointCloud2::SharedPtr &msg, double self_x, double self_y, double self_angle) const
 {
   auto points = PC2_to_vector(*msg);
-  rotate_pitch(points, livox_pitch);
+  rotate_pitch(points);
   filter_points_base_origin(self_x, self_y, self_angle, points);
   transform_pointcloud(self_x, self_y, self_angle, points);
   return points;
@@ -77,9 +77,9 @@ std::vector<Point3D> PointCloudProcessor::PC2_to_vector(const sensor_msgs::msg::
   return points;
 }
 
-void PointCloudProcessor::rotate_pitch(std::vector<Point3D> &points, int degree) const
+void PointCloudProcessor::rotate_pitch(std::vector<Point3D> &points) const
 {
-  double angle_rad = degree * M_PI / 180.0;
+  double angle_rad = params_.livox_pitch * M_PI / 180.0;
   double cos_angle = std::cos(angle_rad);
   double sin_angle = std::sin(angle_rad);
 

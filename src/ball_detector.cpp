@@ -38,7 +38,7 @@ namespace ball_detector
     params_.max_y = this->get_parameter("max_y").as_double();
     params_.min_z = this->get_parameter("min_z").as_double();
     params_.max_z = this->get_parameter("max_z").as_double();
-    livox_pitch_ = this->get_parameter("livox_pitch").as_double();
+    params_.livox_pitch = this->get_parameter("livox_pitch").as_double();
     params_.voxel_size_x = this->get_parameter("voxel_size_x").as_double();
     params_.voxel_size_y = this->get_parameter("voxel_size_y").as_double();
     params_.voxel_size_z = this->get_parameter("voxel_size_z").as_double();
@@ -59,7 +59,7 @@ namespace ball_detector
     previous_time_ = current_time;
 
     PointCloudProcessor processor(params_);
-    std::vector<Point3D> processed_points = processor.process(msg, self_pose_.x, self_pose_.y, self_pose_.z, livox_pitch_);
+    std::vector<Point3D> processed_points = processor.process(msg, self_pose_.x, self_pose_.y, self_pose_.z);
     // ボクセル化 & クラスタリング
     std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
     std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);

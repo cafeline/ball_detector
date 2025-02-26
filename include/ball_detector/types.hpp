@@ -85,4 +85,5 @@ struct Parameters
   double max_distance_for_association;
   int missing_count_threshold;
   double ball_vel_min;
+  double livox_pitch;
 };

@@ -71,7 +71,6 @@ namespace ball_detector
     // Clusteringが管理するインデックスを利用する
     // ボール,動的クラスタなどのインデックスはclustering_経由で取得
     Point3D self_pose_;
-    double livox_pitch_ = 0.0;
     double ball_vel_min_ = 0.0;
     double max_distance_for_association_ = 0.0;
 
