@@ -32,7 +32,6 @@ namespace ball_detector
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
     void autonomous_callback(const std_msgs::msg::Bool::SharedPtr msg);
 
-    std::vector<Point3D> preprocess_pointcloud(const sensor_msgs::msg::PointCloud2 &msg);
 
     visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid, const std_msgs::msg::Header &header);
     visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters);

@@ -58,7 +58,8 @@ namespace ball_detector
     double dt = (previous_time_.nanoseconds() == 0) ? 0.0 : (current_time - previous_time_).seconds();
     previous_time_ = current_time;
 
-    std::vector<Point3D> processed_points = preprocess_pointcloud(*msg);
+    PointCloudProcessor processor(params_);
+    std::vector<Point3D> processed_points = processor.process(msg, self_pose_.x, self_pose_.y, self_pose_.z, livox_pitch_);
     // ボクセル化 & クラスタリング
     std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
     std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
@@ -67,23 +68,12 @@ namespace ball_detector
     clustering_->refine_ball_clusters(clusters, ball_position);
 
     // 残りの点群をPointCloud2形式に変換してパブリッシュ
-    PointCloudProcessor processor(params_);
     sensor_msgs::msg::PointCloud2 remaining_cloud = processor.vector_to_PC2(processed_points);
     filtered_cloud_publisher_->publish(remaining_cloud);
 
     // マーカーのパブリッシュ
     publish_markers(ball_position, clusters, remaining_cloud);
     // RCLCPP_INFO(this->get_logger(), "exec time: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
-  }
-
-  std::vector<Point3D> BallDetector::preprocess_pointcloud(const sensor_msgs::msg::PointCloud2 &msg)
-  {
-    PointCloudProcessor processor(params_);
-    auto tmp_points = processor.PC2_to_vector(msg);
-    auto rotated_points = processor.rotate_pitch(tmp_points, livox_pitch_);
-    auto filtered_points = processor.filter_points_base_origin(self_pose_.x, self_pose_.y, self_pose_.z, rotated_points);
-    auto transformed_points = processor.transform_pointcloud(self_pose_.x, self_pose_.y, self_pose_.z, filtered_points);
-    return transformed_points;
   }
 
   void BallDetector::pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -342,5 +332,4 @@ namespace ball_detector
 
     return marker;
   }
-
 }
