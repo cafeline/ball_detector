@@ -10,6 +10,7 @@ namespace ball_detector
   {
     voxel_processor_ = std::make_unique<VoxelProcessor>(params_);
     clustering_ = std::make_unique<Clustering>(params_);
+    visualizer_ = std::make_unique<Visualizer>(params_);
   }
 
   // パラメータを後から設定するためのセッター
@@ -18,9 +19,10 @@ namespace ball_detector
     params_ = params;
     voxel_processor_ = std::make_unique<VoxelProcessor>(params_);
     clustering_ = std::make_unique<Clustering>(params_);
+    visualizer_ = std::make_unique<Visualizer>(params_);
   }
 
-  Point3D BallDetectorCore::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)
+  DetectionResult BallDetectorCore::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)
   {
     // ボクセル化
     std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
@@ -37,7 +39,10 @@ namespace ball_detector
     // ボールクラスタの精緻化
     clustering_->refine_ball_clusters(clusters, ball_position);
 
-    return ball_position;
+    visualizer_->clustering_ = std::make_unique<Clustering>(*clustering_);
+
+    // 検出結果とビジュアライゼーションデータを返す
+    return DetectionResult{ball_position, clusters, processed_points};
   }
 
   Point3D BallDetectorCore::calculate_ball_position(const std::vector<VoxelCluster> &clusters)

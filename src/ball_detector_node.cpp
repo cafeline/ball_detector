@@ -9,7 +9,6 @@ namespace ball_detector
 
     load_parameters();
     setup_publishers_and_subscribers();
-    visualizer_ = std::make_unique<Visualizer>(params_);
   }
 
   void BallDetectorNode::load_parameters()
@@ -66,10 +65,10 @@ namespace ball_detector
     std::vector<Point3D> processed_points = pointcloud_processor->process(msg, self_pose_.x, self_pose_.y, self_pose_.z);
 
     // ボール検出
-    Point3D ball_position = ball_detector_core_->detect_ball(processed_points, current_time, dt);
+    DetectionResult result = ball_detector_core_->detect_ball(processed_points, current_time, dt);
 
     // 視覚化
-    publish_visualization(ball_position, ball_detector_core_->clustering_->get_clusters(), processed_points);
+    publish_visualization(result, msg->header);
 
     // RCLCPP_INFO(this->get_logger(), "exec time: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
   }
@@ -95,25 +94,25 @@ namespace ball_detector
     is_autonomous = msg->data;
   }
 
-  void BallDetectorNode::publish_visualization(Point3D &ball_position, const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &points)
+  void BallDetectorNode::publish_visualization(const DetectionResult &result, const std_msgs::msg::Header &header)
   {
-    visualization_msgs::msg::MarkerArray voxel_marker_array = visualizer_->create_voxel_cluster_markers(clusters, ball_detector_core_->clustering_.get());
+    visualization_msgs::msg::MarkerArray voxel_marker_array = ball_detector_core_->visualizer_->create_voxel_cluster_markers(result.clusters, ball_detector_core_->clustering_.get());
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
-    sensor_msgs::msg::PointCloud2 remaining_cloud = pointcloud_processor->vector_to_PC2(points);
+    sensor_msgs::msg::PointCloud2 remaining_cloud = pointcloud_processor->vector_to_PC2(result.processed_points);
     filtered_cloud_publisher_->publish(remaining_cloud);
 
-    if (ball_position.x == 0.0 && ball_position.y == 0.0 && ball_position.z == 0.0)
+    if (result.ball_position.x == 0.0 && result.ball_position.y == 0.0 && result.ball_position.z == 0.0)
     {
       return;
     }
-    visualization_msgs::msg::Marker marker = visualizer_->create_ball_marker(ball_position, remaining_cloud.header);
+    visualization_msgs::msg::Marker marker = ball_detector_core_->visualizer_->create_ball_marker(result.ball_position, header);
     ball_publisher_->publish(marker);
 
-    visualizer_->update_trajectory(ball_position, remaining_cloud);
-    visualization_msgs::msg::Marker trajectory_marker = visualizer_->create_trajectory_marker(visualizer_->ball_trajectory_points_, remaining_cloud.header);
+    ball_detector_core_->visualizer_->update_trajectory(result.ball_position, remaining_cloud);
+    visualization_msgs::msg::Marker trajectory_marker = ball_detector_core_->visualizer_->create_trajectory_marker(ball_detector_core_->visualizer_->ball_trajectory_points_, header);
     trajectory_publisher_->publish(trajectory_marker);
-    visualization_msgs::msg::Marker past_points_marker = visualizer_->create_past_points_marker(visualizer_->past_points_, remaining_cloud.header);
+    visualization_msgs::msg::Marker past_points_marker = ball_detector_core_->visualizer_->create_past_points_marker(ball_detector_core_->visualizer_->past_points_, header);
     past_points_publisher_->publish(past_points_marker);
   }
 

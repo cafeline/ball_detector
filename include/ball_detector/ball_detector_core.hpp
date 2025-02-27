@@ -7,9 +7,18 @@
 #include "std_msgs/msg/bool.hpp"
 #include "ball_detector/pointcloud_processor.hpp"
 #include "ball_detector/clustering.hpp"
+#include "ball_detector/visualizer.hpp"
 
 namespace ball_detector
 {
+  // 検出結果とビジュアライゼーションデータを格納する構造体
+  struct DetectionResult
+  {
+    Point3D ball_position;
+    std::vector<VoxelCluster> clusters;
+    std::vector<Point3D> processed_points;
+  };
+
   class BallDetectorCore
   {
   public:
@@ -17,12 +26,13 @@ namespace ball_detector
     ~BallDetectorCore() = default;
 
     void set_params(const Parameters &params);
-    Point3D detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt);
+    DetectionResult detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt);
 
     Point3D calculate_ball_position(const std::vector<VoxelCluster> &clusters);
 
     std::unique_ptr<Clustering> clustering_;
     std::unique_ptr<VoxelProcessor> voxel_processor_;
+    std::unique_ptr<Visualizer> visualizer_;
 
   private:
     Parameters params_;

@@ -26,10 +26,10 @@ namespace ball_detector
 
     std::deque<Point3D> ball_trajectory_points_;
     std::deque<Point3D> past_points_;
+    std::unique_ptr<Clustering> clustering_;
 
   private:
     Parameters params_;
-    std::unique_ptr<Clustering> clustering_;
   };
 } // namespace ball_detector
 

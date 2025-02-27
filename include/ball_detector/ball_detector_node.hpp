@@ -3,7 +3,6 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "ball_detector/ball_detector_core.hpp"
-#include "ball_detector/visualizer.hpp"
 
 namespace ball_detector
 {
@@ -18,11 +17,10 @@ namespace ball_detector
     void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
     void autonomous_callback(const std_msgs::msg::Bool::SharedPtr msg);
-    void publish_visualization(Point3D &ball_position, const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &points);
+    void publish_visualization(const DetectionResult &result, const std_msgs::msg::Header &header);
 
     std::unique_ptr<BallDetectorCore> ball_detector_core_;
     std::unique_ptr<PointCloudProcessor> pointcloud_processor;
-    std::unique_ptr<Visualizer> visualizer_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_subscription_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr autonomous_subscription_;
