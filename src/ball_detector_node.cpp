@@ -9,6 +9,7 @@ namespace ball_detector
 
     load_parameters();
     setup_publishers_and_subscribers();
+    visualizer_ = std::make_unique<Visualizer>(params_);
   }
 
   void BallDetectorNode::load_parameters()
@@ -102,7 +103,7 @@ namespace ball_detector
   void BallDetectorNode::publish_visualization(Point3D &ball_position, const std::vector<VoxelCluster> &clusters,
                                                const sensor_msgs::msg::PointCloud2 &cloud_msg)
   {
-    visualization_msgs::msg::MarkerArray voxel_marker_array = detector_->create_voxel_cluster_markers(clusters);
+    visualization_msgs::msg::MarkerArray voxel_marker_array = visualizer_->create_voxel_cluster_markers(clusters, detector_->clustering_.get());
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
     if (ball_position.x == 0.0 && ball_position.y == 0.0 && ball_position.z == 0.0)
@@ -110,13 +111,13 @@ namespace ball_detector
       return;
     }
 
-    visualization_msgs::msg::Marker marker = detector_->create_ball_marker(ball_position, cloud_msg.header);
+    visualization_msgs::msg::Marker marker = visualizer_->create_ball_marker(ball_position, cloud_msg.header);
     ball_publisher_->publish(marker);
 
-    detector_->update_trajectory(ball_position, cloud_msg);
-    visualization_msgs::msg::Marker trajectory_marker = detector_->create_trajectory_marker(detector_->ball_trajectory_points_, cloud_msg.header);
+    visualizer_->update_trajectory(ball_position, cloud_msg);
+    visualization_msgs::msg::Marker trajectory_marker = visualizer_->create_trajectory_marker(visualizer_->ball_trajectory_points_, cloud_msg.header);
     trajectory_publisher_->publish(trajectory_marker);
-    visualization_msgs::msg::Marker past_points_marker = detector_->create_past_points_marker(detector_->past_points_, cloud_msg.header);
+    visualization_msgs::msg::Marker past_points_marker = visualizer_->create_past_points_marker(visualizer_->past_points_, cloud_msg.header);
     past_points_publisher_->publish(past_points_marker);
   }
 

@@ -3,6 +3,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "ball_detector/ball_detector_core.hpp"
+#include "ball_detector/visualizer.hpp"
 
 namespace ball_detector
 {
@@ -21,6 +22,7 @@ namespace ball_detector
                                const sensor_msgs::msg::PointCloud2 &cloud_msg);
 
     std::unique_ptr<BallDetector> detector_;
+    std::unique_ptr<Visualizer> visualizer_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_subscription_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr autonomous_subscription_;
