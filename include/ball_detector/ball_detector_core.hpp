@@ -6,10 +6,12 @@
 #include "ball_detector/pointcloud_processor.hpp"
 #include "ball_detector/voxel_clusterer.hpp"
 #include "ball_detector/cluster_analyzer.hpp"
+#include "ball_detector/cluster_tracking.hpp"
 #include "ball_detector/marker_factory.hpp"
 #include "ball_detector/trajectory_manager.hpp"
 #include <memory>
 #include <vector>
+#include <unordered_set>
 
 namespace ball_detector
 {
@@ -19,6 +21,9 @@ namespace ball_detector
     Point3D ball_position;
     std::vector<VoxelCluster> clusters;
     std::vector<Point3D> processed_points;
+    std::unordered_set<size_t> ball_indices;
+    std::unordered_set<size_t> dynamic_indices;
+    std::unordered_set<size_t> dynamic_ball_indices;
   };
 
   class BallDetectorCore
@@ -34,12 +39,12 @@ namespace ball_detector
     std::unique_ptr<VoxelClusterer> clusterer_;
     std::unique_ptr<ClusterAnalyzer> analyzer_;
     std::unique_ptr<TrajectoryManager> trajectory_manager_;
+    std::unique_ptr<ClusterTracking> cluster_tracking_;
 
   private:
     Point3D calculate_ball_position(const std::vector<VoxelCluster> &clusters);
 
     Parameters params_;
-
   };
 
 } // namespace ball_detector

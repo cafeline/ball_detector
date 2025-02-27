@@ -12,6 +12,7 @@ namespace ball_detector
     analyzer_ = std::make_unique<ClusterAnalyzer>(params_);
     marker_factory_ = std::make_unique<MarkerFactory>(params_);
     trajectory_manager_ = std::make_unique<TrajectoryManager>();
+    cluster_tracking_ = std::make_unique<ClusterTracking>();
   }
 
   void BallDetectorCore::set_params(const Parameters &params)
@@ -43,7 +44,37 @@ namespace ball_detector
     // 5. 軌跡更新
     trajectory_manager_->update_trajectory(ball_position);
 
-    return DetectionResult{ball_position, clusters, processed_points};
+    // 以下を追加
+    std::vector<int> assignments = cluster_tracking_->associate_clusters(
+        clusters, params_.max_distance_for_association, current_time, dt);
+
+    cluster_tracking_->remove_missing_tracks();
+
+    std::vector<VoxelCluster> filtered_clusters =
+        cluster_tracking_->filter_by_speed(clusters, assignments, dt, params_.ball_vel_min);
+
+    std::unordered_set<size_t> ball_indices;
+    std::unordered_set<size_t> dynamic_indices;
+    std::unordered_set<size_t> dynamic_ball_indices;
+
+    // インデックスを計算
+    for (size_t j = 0; j < filtered_clusters.size(); ++j)
+    {
+      int i = assignments[j];
+      if (i < 0)
+        continue;
+      dynamic_ball_indices.insert(i);
+    }
+
+    for (size_t i = 0; i < clusters.size(); ++i)
+    {
+      if (dynamic_ball_indices.find(i) == dynamic_ball_indices.end())
+      {
+        dynamic_indices.insert(i);
+      }
+    }
+
+    return DetectionResult{ball_position, clusters, processed_points, ball_indices, dynamic_indices, dynamic_ball_indices};
   }
 
   Point3D BallDetectorCore::calculate_ball_position(const std::vector<VoxelCluster> &clusters)
