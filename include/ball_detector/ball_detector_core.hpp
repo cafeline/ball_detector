@@ -1,17 +1,19 @@
-#ifndef BALL_DETECTOR_BALL_DETECTOR_HPP_
-#define BALL_DETECTOR_BALL_DETECTOR_HPP_
+#ifndef BALL_DETECTOR_BALL_DETECTOR_CORE_HPP_
+#define BALL_DETECTOR_BALL_DETECTOR_CORE_HPP_
 
 #include "rclcpp/rclcpp.hpp"
-#include "sensor_msgs/msg/point_cloud2.hpp"
-#include "geometry_msgs/msg/pose_stamped.hpp"
-#include "std_msgs/msg/bool.hpp"
+#include "ball_detector/types.hpp"
 #include "ball_detector/pointcloud_processor.hpp"
-#include "ball_detector/clustering.hpp"
-#include "ball_detector/visualizer.hpp"
+#include "ball_detector/voxel_clusterer.hpp"
+#include "ball_detector/cluster_analyzer.hpp"
+#include "ball_detector/marker_factory.hpp"
+#include "ball_detector/trajectory_manager.hpp"
+#include <memory>
+#include <vector>
 
 namespace ball_detector
 {
-  // 検出結果とビジュアライゼーションデータを格納する構造体
+
   struct DetectionResult
   {
     Point3D ball_position;
@@ -27,17 +29,19 @@ namespace ball_detector
 
     void set_params(const Parameters &params);
     DetectionResult detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt);
-
-    Point3D calculate_ball_position(const std::vector<VoxelCluster> &clusters);
-
-    std::unique_ptr<Clustering> clustering_;
+    std::unique_ptr<MarkerFactory> marker_factory_;
     std::unique_ptr<VoxelProcessor> voxel_processor_;
-    std::unique_ptr<Visualizer> visualizer_;
+    std::unique_ptr<VoxelClusterer> clusterer_;
+    std::unique_ptr<ClusterAnalyzer> analyzer_;
+    std::unique_ptr<TrajectoryManager> trajectory_manager_;
 
   private:
+    Point3D calculate_ball_position(const std::vector<VoxelCluster> &clusters);
+
     Parameters params_;
+
   };
 
 } // namespace ball_detector
 
-#endif // BALL_DETECTOR_BALL_DETECTOR_HPP_
+#endif // BALL_DETECTOR_BALL_DETECTOR_CORE_HPP_

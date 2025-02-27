@@ -96,7 +96,7 @@ namespace ball_detector
 
   void BallDetectorNode::publish_visualization(const DetectionResult &result, const std_msgs::msg::Header &header)
   {
-    visualization_msgs::msg::MarkerArray voxel_marker_array = ball_detector_core_->visualizer_->create_voxel_cluster_markers(result.clusters, ball_detector_core_->clustering_.get());
+    visualization_msgs::msg::MarkerArray voxel_marker_array = ball_detector_core_->marker_factory_->create_voxel_cluster_markers(result.clusters, ball_detector_core_->clusterer_.get());
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
     sensor_msgs::msg::PointCloud2 remaining_cloud = pointcloud_processor->vector_to_PC2(result.processed_points);
@@ -106,14 +106,14 @@ namespace ball_detector
     {
       return;
     }
-    visualization_msgs::msg::Marker marker = ball_detector_core_->visualizer_->create_ball_marker(result.ball_position, header);
+    visualization_msgs::msg::Marker marker = ball_detector_core_->marker_factory_->create_ball_marker(result.ball_position, header);
     ball_publisher_->publish(marker);
 
-    ball_detector_core_->visualizer_->update_trajectory(result.ball_position, remaining_cloud);
-    visualization_msgs::msg::Marker trajectory_marker = ball_detector_core_->visualizer_->create_trajectory_marker(ball_detector_core_->visualizer_->ball_trajectory_points_, header);
+    ball_detector_core_->trajectory_manager_->update_trajectory(result.ball_position, remaining_cloud);
+    visualization_msgs::msg::Marker trajectory_marker = ball_detector_core_->trajectory_manager_->create_trajectory_marker(ball_detector_core_->trajectory_manager->get_trajectory(), header);
     trajectory_publisher_->publish(trajectory_marker);
-    visualization_msgs::msg::Marker past_points_marker = ball_detector_core_->visualizer_->create_past_points_marker(ball_detector_core_->visualizer_->past_points_, header);
-    past_points_publisher_->publish(past_points_marker);
+    // visualization_msgs::msg::Marker past_points_marker = ball_detector_core_->marker_factory_->create_past_points_marker(ball_detector_core_->marker_factory_->past_points_, header);
+    // past_points_publisher_->publish(past_points_marker);
   }
 
 } // namespace ball_detector

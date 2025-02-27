@@ -1,77 +1,67 @@
 #include "ball_detector/ball_detector_core.hpp"
-#include <chrono>
-#include <unordered_set>
-#include <random>
+#include <algorithm>
 #include <cmath>
 
 namespace ball_detector
 {
-  BallDetectorCore::BallDetectorCore()
+
+  BallDetectorCore::BallDetectorCore() : params_()
   {
     voxel_processor_ = std::make_unique<VoxelProcessor>(params_);
-    clustering_ = std::make_unique<Clustering>(params_);
-    visualizer_ = std::make_unique<Visualizer>(params_);
+    clusterer_ = std::make_unique<VoxelClusterer>(params_);
+    analyzer_ = std::make_unique<ClusterAnalyzer>(params_);
+    marker_factory_ = std::make_unique<MarkerFactory>(params_);
+    trajectory_manager_ = std::make_unique<TrajectoryManager>();
   }
 
-  // パラメータを後から設定するためのセッター
   void BallDetectorCore::set_params(const Parameters &params)
   {
     params_ = params;
     voxel_processor_ = std::make_unique<VoxelProcessor>(params_);
-    clustering_ = std::make_unique<Clustering>(params_);
-    visualizer_ = std::make_unique<Visualizer>(params_);
+    clusterer_ = std::make_unique<VoxelClusterer>(params_);
+    analyzer_ = std::make_unique<ClusterAnalyzer>(params_);
+    marker_factory_ = std::make_unique<MarkerFactory>(params_);
+    // trajectory_manager_ は内部状態を保持するため再生成は不要な場合もある
   }
 
-  DetectionResult BallDetectorCore::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)
+  DetectionResult BallDetectorCore::detect_ball(const std::vector<Point3D> &processed_points,
+                                                const rclcpp::Time &current_time,
+                                                double dt)
   {
-    // ボクセル化
+    // 1. 点群からボクセルを作成
     std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
 
-    // クラスタリング
-    std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
+    // 2. VoxelClusterer によりクラスタを生成
+    std::vector<VoxelCluster> clusters = clusterer_->create_clusters(processed_points, voxels);
 
-    // クラスタの処理
-    clustering_->process_clusters(processed_points, clusters, current_time, dt);
-
-    // ボール位置の計算
+    // 3. ボール位置の計算（例として各クラスタの重心を利用）
     Point3D ball_position = calculate_ball_position(clusters);
 
-    // ボールクラスタの精緻化
-    clustering_->refine_ball_clusters(clusters, ball_position);
+    // 4. ClusterAnalyzer によるクラスタの精緻化
+    analyzer_->refine_ball_clusters(clusters, ball_position);
 
-    visualizer_->clustering_ = std::make_unique<Clustering>(*clustering_);
+    // 5. 軌跡更新
+    trajectory_manager_->update_trajectory(ball_position);
 
-    // 検出結果とビジュアライゼーションデータを返す
     return DetectionResult{ball_position, clusters, processed_points};
   }
 
   Point3D BallDetectorCore::calculate_ball_position(const std::vector<VoxelCluster> &clusters)
   {
-    const auto &dynamic_ball_indices = clustering_->get_dynamic_ball_cluster_indices();
-    std::vector<Point3D> candidate_points;
-
-    // 動的かつボール以下のサイズのクラスタから全ての点を収集
-    for (const auto &index : dynamic_ball_indices)
+    std::vector<Point3D> candidatePoints;
+    for (const auto &cluster : clusters)
     {
-      const VoxelCluster &cluster = clusters[index];
-      candidate_points.insert(candidate_points.end(), cluster.points.begin(), cluster.points.end());
+      candidatePoints.push_back(analyzer_->compute_centroid(cluster));
     }
+    if (candidatePoints.size() < 2)
+      return Point3D{0.0, 0.0, 0.0};
 
-    if (candidate_points.size() < 2)
-    {
-      // RCLCPP_WARN(this->get_logger(), "候補点が2点未満のため、ボールを検出できません。");
-      return Point3D{0.0, 0.0, 0.0}; // 無効な位置を示す
-    }
-
-    // x座標でソート
-    std::sort(candidate_points.begin(), candidate_points.end(),
+    std::sort(candidatePoints.begin(), candidatePoints.end(),
               [](const Point3D &a, const Point3D &b)
               { return a.x < b.x; });
-
-    // 最小のxを持つ2点を選択し平均値を計算
-    const Point3D &point1 = candidate_points[0];
-    const Point3D &point2 = candidate_points[1];
-
-    return Point3D{(point1.x + point2.x) / 2.0, (point1.y + point2.y) / 2.0, (point1.z + point2.z) / 2.0};
+    const Point3D &p1 = candidatePoints[0];
+    const Point3D &p2 = candidatePoints[1];
+    return Point3D{(p1.x + p2.x) / 2.0, (p1.y + p2.y) / 2.0, (p1.z + p2.z) / 2.0};
   }
-}
+
+} // namespace ball_detector

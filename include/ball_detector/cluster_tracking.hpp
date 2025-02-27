@@ -12,24 +12,24 @@ class ClusterTracking
 public:
   ClusterTracking() = default;
 
-  std::vector<int> associateClusters(const std::vector<VoxelCluster> &current_clusters,
-                                     double max_distance_for_association,
-                                     rclcpp::Time current_time,
-                                     double dt);
+  std::vector<int> associate_clusters(const std::vector<VoxelCluster> &current_clusters,
+                                      double max_distance_for_association,
+                                      rclcpp::Time current_time,
+                                      double dt);
 
-  void removeMissingTracks();
+  void remove_missing_tracks();
 
-  std::vector<VoxelCluster> filterBySpeed(const std::vector<VoxelCluster> &current_clusters,
-                                          const std::vector<int> &assignments,
-                                          double dt,
-                                          double speed_threshold);
+  std::vector<VoxelCluster> filter_by_speed(const std::vector<VoxelCluster> &current_clusters,
+                                            const std::vector<int> &assignments,
+                                            double dt,
+                                            double speed_threshold);
 
 private:
   // トラック情報を管理するマップ
   std::map<int, ClusterTrack> tracks_;
 
-  Point3D calculateClusterCentroid(const VoxelCluster &cluster);
-  double calculateDistance(const Point3D &p1, const Point3D &p2);
-  int createNewTrack(const VoxelCluster &cluster, rclcpp::Time current_time);
-  void updateTrack(int track_id, const Point3D &centroid, rclcpp::Time current_time);
+  Point3D calculate_cluster_centroid(const VoxelCluster &cluster);
+  double calculate_distance(const Point3D &p1, const Point3D &p2);
+  int create_new_track(const VoxelCluster &cluster, rclcpp::Time current_time);
+  void update_track(int track_id, const Point3D &centroid, rclcpp::Time current_time);
 };

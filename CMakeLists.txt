@@ -15,9 +15,11 @@ ament_auto_add_library(ball_detector
   src/ball_detector_node.cpp
   src/ball_detector_core.cpp
   src/pointcloud_processor.cpp
-  src/clustering.cpp
   src/cluster_tracking.cpp
-  src/visualizer.cpp
+  src/voxel_clusterer.cpp
+  src/cluster_analyzer.cpp
+  src/marker_factory.cpp
+  src/trajectory_manager.cpp
 )
 
 ament_export_include_directories(include)

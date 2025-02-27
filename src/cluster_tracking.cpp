@@ -1,9 +1,9 @@
 #include "ball_detector/cluster_tracking.hpp"
 
-std::vector<int> ClusterTracking::associateClusters(const std::vector<VoxelCluster> &current_clusters,
-                                                    double max_distance_for_association,
-                                                    rclcpp::Time current_time,
-                                                    double dt)
+std::vector<int> ClusterTracking::associate_clusters(const std::vector<VoxelCluster> &current_clusters,
+                                                     double max_distance_for_association,
+                                                     rclcpp::Time current_time,
+                                                     double dt)
 {
   std::vector<int> assignments(current_clusters.size(), -1);
   std::vector<bool> track_used(tracks_.size(), false);
@@ -19,7 +19,7 @@ std::vector<int> ClusterTracking::associateClusters(const std::vector<VoxelClust
   // 各クラスタと既存トラックとの関連付け
   for (size_t i = 0; i < current_clusters.size(); ++i)
   {
-    Point3D cluster_centroid = calculateClusterCentroid(current_clusters[i]);
+    Point3D cluster_centroid = calculate_cluster_centroid(current_clusters[i]);
     double best_distance = std::numeric_limits<double>::max();
     int best_track_idx = -1;
 
@@ -30,7 +30,7 @@ std::vector<int> ClusterTracking::associateClusters(const std::vector<VoxelClust
         continue;
 
       Point3D track_centroid = track_list[j]->second.last_centroid;
-      double distance = calculateDistance(cluster_centroid, track_centroid);
+      double distance = calculate_distance(cluster_centroid, track_centroid);
 
       if (distance < best_distance && distance < max_distance_for_association)
       {
@@ -44,7 +44,7 @@ std::vector<int> ClusterTracking::associateClusters(const std::vector<VoxelClust
     {
       assignments[i] = track_list[best_track_idx]->first;
       track_used[best_track_idx] = true;
-      updateTrack(track_list[best_track_idx]->first, cluster_centroid, current_time);
+      update_track(track_list[best_track_idx]->first, cluster_centroid, current_time);
     }
   }
 
@@ -53,7 +53,7 @@ std::vector<int> ClusterTracking::associateClusters(const std::vector<VoxelClust
   {
     if (assignments[i] < 0)
     {
-      assignments[i] = createNewTrack(current_clusters[i], current_time);
+      assignments[i] = create_new_track(current_clusters[i], current_time);
     }
   }
 
@@ -69,7 +69,7 @@ std::vector<int> ClusterTracking::associateClusters(const std::vector<VoxelClust
   return assignments;
 }
 
-void ClusterTracking::removeMissingTracks()
+void ClusterTracking::remove_missing_tracks()
 {
   const int max_missing_count = 50;
   for (auto it = tracks_.begin(); it != tracks_.end();)
@@ -81,10 +81,10 @@ void ClusterTracking::removeMissingTracks()
   }
 }
 
-std::vector<VoxelCluster> ClusterTracking::filterBySpeed(const std::vector<VoxelCluster> &current_clusters,
-                                                         const std::vector<int> &assignments,
-                                                         double dt,
-                                                         double speed_threshold)
+std::vector<VoxelCluster> ClusterTracking::filter_by_speed(const std::vector<VoxelCluster> &current_clusters,
+                                                           const std::vector<int> &assignments,
+                                                           double dt,
+                                                           double speed_threshold)
 {
   std::vector<VoxelCluster> filtered_clusters;
   for (size_t i = 0; i < current_clusters.size(); ++i)
@@ -103,10 +103,10 @@ std::vector<VoxelCluster> ClusterTracking::filterBySpeed(const std::vector<Voxel
       continue;
     }
 
-    Point3D current_centroid = calculateClusterCentroid(current_clusters[i]);
+    Point3D current_centroid = calculate_cluster_centroid(current_clusters[i]);
     Point3D last_centroid = track_it->second.last_centroid;
 
-    double distance = calculateDistance(current_centroid, last_centroid);
+    double distance = calculate_distance(current_centroid, last_centroid);
     double speed = distance / dt;
 
     if (speed >= speed_threshold)
@@ -120,7 +120,7 @@ std::vector<VoxelCluster> ClusterTracking::filterBySpeed(const std::vector<Voxel
   return filtered_clusters;
 }
 
-Point3D ClusterTracking::calculateClusterCentroid(const VoxelCluster &cluster)
+Point3D ClusterTracking::calculate_cluster_centroid(const VoxelCluster &cluster)
 {
   Point3D centroid{0.0f, 0.0f, 0.0f};
   if (cluster.points.empty())
@@ -142,7 +142,7 @@ Point3D ClusterTracking::calculateClusterCentroid(const VoxelCluster &cluster)
   return centroid;
 }
 
-double ClusterTracking::calculateDistance(const Point3D &p1, const Point3D &p2)
+double ClusterTracking::calculate_distance(const Point3D &p1, const Point3D &p2)
 {
   double dx = p1.x - p2.x;
   double dy = p1.y - p2.y;
@@ -150,16 +150,16 @@ double ClusterTracking::calculateDistance(const Point3D &p1, const Point3D &p2)
   return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-int ClusterTracking::createNewTrack(const VoxelCluster &cluster, rclcpp::Time current_time)
+int ClusterTracking::create_new_track(const VoxelCluster &cluster, rclcpp::Time current_time)
 {
   int new_id = tracks_.empty() ? 0 : tracks_.rbegin()->first + 1;
-  Point3D centroid = calculateClusterCentroid(cluster);
+  Point3D centroid = calculate_cluster_centroid(cluster);
   ClusterTrack new_track{new_id, centroid, current_time, 0};
   tracks_[new_id] = new_track;
   return new_id;
 }
 
-void ClusterTracking::updateTrack(int track_id, const Point3D &centroid, rclcpp::Time current_time)
+void ClusterTracking::update_track(int track_id, const Point3D &centroid, rclcpp::Time current_time)
 {
   auto it = tracks_.find(track_id);
   if (it != tracks_.end())

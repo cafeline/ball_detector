@@ -3,6 +3,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "ball_detector/ball_detector_core.hpp"
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <std_msgs/msg/bool.hpp>
 
 namespace ball_detector
 {
