@@ -12,7 +12,8 @@ find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
 ament_auto_add_library(ball_detector
-  src/ball_detector.cpp
+  src/ball_detector_node.cpp
+  src/ball_detector_core.cpp
   src/pointcloud_processor.cpp
   src/clustering.cpp
   src/cluster_tracking.cpp

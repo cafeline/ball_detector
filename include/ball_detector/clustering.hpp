@@ -63,7 +63,6 @@ public:
 
   // ボクセル操作ユーティリティ
   bool point_in_voxel(const Point3D &point, const Voxel &voxel) const;
-  std::vector<std::string> get_voxel_neighbors(int cx, int cy, int cz);
 
 private:
   Parameters params_;
