@@ -6,21 +6,21 @@
 
 namespace ball_detector
 {
-  BallDetector::BallDetector()
+  BallDetectorCore::BallDetectorCore()
   {
     voxel_processor_ = std::make_unique<VoxelProcessor>(params_);
     clustering_ = std::make_unique<Clustering>(params_);
   }
 
   // パラメータを後から設定するためのセッター
-  void BallDetector::set_params(const Parameters &params)
+  void BallDetectorCore::set_params(const Parameters &params)
   {
     params_ = params;
     voxel_processor_ = std::make_unique<VoxelProcessor>(params_);
     clustering_ = std::make_unique<Clustering>(params_);
   }
 
-  Point3D BallDetector::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)
+  Point3D BallDetectorCore::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)
   {
     // ボクセル化
     std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
@@ -40,7 +40,7 @@ namespace ball_detector
     return ball_position;
   }
 
-  Point3D BallDetector::calculate_ball_position(const std::vector<VoxelCluster> &clusters)
+  Point3D BallDetectorCore::calculate_ball_position(const std::vector<VoxelCluster> &clusters)
   {
     const auto &dynamic_ball_indices = clustering_->get_dynamic_ball_cluster_indices();
     std::vector<Point3D> candidate_points;
@@ -49,9 +49,7 @@ namespace ball_detector
     for (const auto &index : dynamic_ball_indices)
     {
       const VoxelCluster &cluster = clusters[index];
-      candidate_points.insert(candidate_points.end(),
-                              cluster.points.begin(),
-                              cluster.points.end());
+      candidate_points.insert(candidate_points.end(), cluster.points.begin(), cluster.points.end());
     }
 
     if (candidate_points.size() < 2)
@@ -71,7 +69,4 @@ namespace ball_detector
 
     return Point3D{(point1.x + point2.x) / 2.0, (point1.y + point2.y) / 2.0, (point1.z + point2.z) / 2.0};
   }
-
-  // visualization 関連の関数は visualizer.cpp に移動
-  // ...
 }

@@ -10,11 +10,11 @@
 
 namespace ball_detector
 {
-  class BallDetector
+  class BallDetectorCore
   {
   public:
-    BallDetector();
-    ~BallDetector() = default;
+    BallDetectorCore();
+    ~BallDetectorCore() = default;
 
     void set_params(const Parameters &params);
     Point3D detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt);

@@ -5,7 +5,7 @@ namespace ball_detector
   BallDetectorNode::BallDetectorNode(const rclcpp::NodeOptions &options)
       : Node("ball_detector", options)
   {
-    detector_ = std::make_unique<BallDetector>();
+    ball_detector_core_ = std::make_unique<BallDetectorCore>();
 
     load_parameters();
     setup_publishers_and_subscribers();
@@ -30,7 +30,8 @@ namespace ball_detector
     params_.ball_vel_min = this->get_parameter("ball_vel_min").as_double();
     params_.max_distance_for_association = this->get_parameter("max_distance_for_association").as_double();
 
-    detector_->set_params(params_);
+    ball_detector_core_->set_params(params_);
+    pointcloud_processor = std::make_unique<PointCloudProcessor>(params_);
   }
 
   void BallDetectorNode::setup_publishers_and_subscribers()
@@ -62,18 +63,13 @@ namespace ball_detector
     previous_time_ = current_time;
 
     // ポイントクラウドの処理
-    PointCloudProcessor processor(params_);
-    std::vector<Point3D> processed_points = processor.process(msg, self_pose_.x, self_pose_.y, self_pose_.z);
+    std::vector<Point3D> processed_points = pointcloud_processor->process(msg, self_pose_.x, self_pose_.y, self_pose_.z);
 
     // ボール検出
-    Point3D ball_position = detector_->detect_ball(processed_points, current_time, dt);
-
-    // 残りの点群をPointCloud2形式に変換してパブリッシュ
-    sensor_msgs::msg::PointCloud2 remaining_cloud = processor.vector_to_PC2(processed_points);
-    filtered_cloud_publisher_->publish(remaining_cloud);
+    Point3D ball_position = ball_detector_core_->detect_ball(processed_points, current_time, dt);
 
     // 視覚化
-    publish_visualization(ball_position, detector_->clustering_->get_clusters(), remaining_cloud);
+    publish_visualization(ball_position, ball_detector_core_->clustering_->get_clusters(), processed_points);
 
     // RCLCPP_INFO(this->get_logger(), "exec time: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
   }
@@ -85,7 +81,6 @@ namespace ball_detector
     double y = msg->pose.orientation.y;
     double z = msg->pose.orientation.z;
 
-    // ヨー角の算出
     double siny_cosp = 2.0 * (w * z + x * y);
     double cosy_cosp = 1.0 - 2.0 * (y * y + z * z);
     double yaw = std::atan2(siny_cosp, cosy_cosp);
@@ -100,24 +95,25 @@ namespace ball_detector
     is_autonomous = msg->data;
   }
 
-  void BallDetectorNode::publish_visualization(Point3D &ball_position, const std::vector<VoxelCluster> &clusters,
-                                               const sensor_msgs::msg::PointCloud2 &cloud_msg)
+  void BallDetectorNode::publish_visualization(Point3D &ball_position, const std::vector<VoxelCluster> &clusters, const std::vector<Point3D> &points)
   {
-    visualization_msgs::msg::MarkerArray voxel_marker_array = visualizer_->create_voxel_cluster_markers(clusters, detector_->clustering_.get());
+    visualization_msgs::msg::MarkerArray voxel_marker_array = visualizer_->create_voxel_cluster_markers(clusters, ball_detector_core_->clustering_.get());
     clustered_voxel_publisher_->publish(voxel_marker_array);
+
+    sensor_msgs::msg::PointCloud2 remaining_cloud = pointcloud_processor->vector_to_PC2(points);
+    filtered_cloud_publisher_->publish(remaining_cloud);
 
     if (ball_position.x == 0.0 && ball_position.y == 0.0 && ball_position.z == 0.0)
     {
       return;
     }
-
-    visualization_msgs::msg::Marker marker = visualizer_->create_ball_marker(ball_position, cloud_msg.header);
+    visualization_msgs::msg::Marker marker = visualizer_->create_ball_marker(ball_position, remaining_cloud.header);
     ball_publisher_->publish(marker);
 
-    visualizer_->update_trajectory(ball_position, cloud_msg);
-    visualization_msgs::msg::Marker trajectory_marker = visualizer_->create_trajectory_marker(visualizer_->ball_trajectory_points_, cloud_msg.header);
+    visualizer_->update_trajectory(ball_position, remaining_cloud);
+    visualization_msgs::msg::Marker trajectory_marker = visualizer_->create_trajectory_marker(visualizer_->ball_trajectory_points_, remaining_cloud.header);
     trajectory_publisher_->publish(trajectory_marker);
-    visualization_msgs::msg::Marker past_points_marker = visualizer_->create_past_points_marker(visualizer_->past_points_, cloud_msg.header);
+    visualization_msgs::msg::Marker past_points_marker = visualizer_->create_past_points_marker(visualizer_->past_points_, remaining_cloud.header);
     past_points_publisher_->publish(past_points_marker);
   }
 
