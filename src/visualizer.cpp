@@ -4,46 +4,49 @@ namespace ball_detector
 {
   Visualizer::Visualizer(const Parameters &params) : params_(params) {}
 
-  visualization_msgs::msg::MarkerArray Visualizer::create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters)
+  visualization_msgs::msg::MarkerArray Visualizer::create_voxel_cluster_markers(const std::vector<ClusterInfo> &cluster_infos)
   {
     visualization_msgs::msg::MarkerArray marker_array;
 
-    const auto &ball_indices = clustering_->get_ball_size_cluster_indices();
-    const auto &dynamic_indices = clustering_->get_dynamic_cluster_indices();
-    const auto &dynamic_ball_indices = clustering_->get_dynamic_ball_cluster_indices();
-
-    for (size_t i = 0; i < clusters.size(); ++i)
+    // 各 ClusterInfo を直接処理：Clustering から索引集合を取得せず、ClusterInfo の要素から情報を得る
+    for (const auto &cluster_info : cluster_infos)
     {
-      bool is_ball_cluster = (ball_indices.find(i) != ball_indices.end());
-      bool is_dynamic = (dynamic_indices.find(i) != dynamic_indices.end());
-      bool is_dynamic_ball = (dynamic_ball_indices.find(i) != dynamic_ball_indices.end());
+      // ClusterInfo の index メンバーを利用
+      size_t cluster_id = cluster_info.index;
+      // ClusterInfo 内にフラグを持たせ、そこから各種判定を行う
+      bool is_ball_cluster = cluster_info.is_ball_cluster;
+      bool is_dynamic_ball = cluster_info.is_dynamic_ball;
       float r, g, b;
       if (is_dynamic_ball)
       {
         r = 0.0f;
         g = 1.0f;
-        b = 0.0f; // 緑
+        b = 0.0f; // 動的ボールクラスターは緑
       }
       else if (is_ball_cluster)
       {
         r = 1.0f;
         g = 0.0f;
-        b = 0.0f; // 赤
+        b = 0.0f; // ボールクラスターは赤
       }
       else
       {
         r = 0.0f;
         g = 0.0f;
-        b = 1.0f; // 青
+        b = 1.0f; // その他は青
       }
 
-      for (size_t v = 0; v < clusters[i].voxels.size(); ++v)
+      // ClusterInfo 内の VoxelCluster を利用してマーカーを生成
+      const VoxelCluster &cluster = cluster_info.cluster;
+      for (size_t v = 0; v < cluster.voxels.size(); ++v)
       {
-        const auto &voxel = clusters[i].voxels[v];
+        const auto &voxel = cluster.voxels[v];
         visualization_msgs::msg::Marker marker;
+        // ヘッダーは "map" としていますが、必要に応じて修正してください
         marker.header.frame_id = "map";
         marker.ns = "voxel_cluster_markers";
-        marker.id = static_cast<int>(i * 10000 + v);
+        // 一意のIDとして、cluster_id と voxel のインデックスを組み合わせる
+        marker.id = static_cast<int>(cluster_id * 10000 + v);
         marker.type = visualization_msgs::msg::Marker::CUBE;
         marker.action = visualization_msgs::msg::Marker::ADD;
 
@@ -70,78 +73,6 @@ namespace ball_detector
         marker_array.markers.push_back(marker);
       }
     }
-
-    return marker_array;
-  }
-
-  visualization_msgs::msg::MarkerArray Visualizer::create_voxel_cluster_markers(
-      const std::vector<VoxelCluster> &clusters, const Clustering *clustering)
-  {
-    visualization_msgs::msg::MarkerArray marker_array;
-
-    const auto &ball_indices = clustering->get_ball_size_cluster_indices();
-    const auto &dynamic_indices = clustering->get_dynamic_cluster_indices();
-    const auto &dynamic_ball_indices = clustering->get_dynamic_ball_cluster_indices();
-
-    for (size_t i = 0; i < clusters.size(); ++i)
-    {
-      bool is_ball_cluster = (ball_indices.find(i) != ball_indices.end());
-      bool is_dynamic = (dynamic_indices.find(i) != dynamic_indices.end());
-      bool is_dynamic_ball = (dynamic_ball_indices.find(i) != dynamic_ball_indices.end());
-      float r, g, b;
-      if (is_dynamic_ball)
-      {
-        r = 0.0f;
-        g = 1.0f;
-        b = 0.0f; // 緑
-      }
-      else if (is_ball_cluster)
-      {
-        r = 1.0f;
-        g = 0.0f;
-        b = 0.0f; // 赤
-      }
-      else
-      {
-        r = 0.0f;
-        g = 0.0f;
-        b = 1.0f; // 青
-      }
-
-      for (size_t v = 0; v < clusters[i].voxels.size(); ++v)
-      {
-        const auto &voxel = clusters[i].voxels[v];
-        visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "map";
-        marker.ns = "voxel_cluster_markers";
-        marker.id = static_cast<int>(i * 10000 + v);
-        marker.type = visualization_msgs::msg::Marker::CUBE;
-        marker.action = visualization_msgs::msg::Marker::ADD;
-
-        double offset_x = params_.voxel_size_x / 2.0;
-        double offset_y = params_.voxel_size_y / 2.0;
-        double offset_z = params_.voxel_size_z / 2.0;
-
-        marker.pose.position.x = params_.min_x + (voxel.x * params_.voxel_size_x) + offset_x;
-        marker.pose.position.y = params_.min_y + (voxel.y * params_.voxel_size_y) + offset_y;
-        marker.pose.position.z = params_.min_z + (voxel.z * params_.voxel_size_z) + offset_z;
-        marker.pose.orientation.w = 1.0;
-
-        marker.scale.x = params_.voxel_size_x;
-        marker.scale.y = params_.voxel_size_y;
-        marker.scale.z = params_.voxel_size_z;
-
-        marker.color.r = r;
-        marker.color.g = g;
-        marker.color.b = b;
-        marker.color.a = 0.3;
-
-        marker.lifetime = rclcpp::Duration(0, 1e8);
-
-        marker_array.markers.push_back(marker);
-      }
-    }
-
     return marker_array;
   }
 
@@ -190,6 +121,7 @@ namespace ball_detector
 
     visualization_msgs::msg::Marker trajectory_marker = create_trajectory_marker(ball_trajectory_points_, remaining_cloud.header);
     visualization_msgs::msg::Marker past_points_marker = create_past_points_marker(past_points_, remaining_cloud.header);
+    // 必要に応じて、各 Marker をパブリッシャーで発行してください
   }
 
   visualization_msgs::msg::Marker Visualizer::create_trajectory_marker(const std::deque<Point3D> &trajectory, const std_msgs::msg::Header &header)
@@ -201,19 +133,13 @@ namespace ball_detector
     marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
     marker.action = visualization_msgs::msg::Marker::ADD;
 
-    // 線の幅
-    marker.scale.x = 0.05; // 線の太さ
-
-    // 線の色
+    marker.scale.x = 0.05;
     marker.color.r = 0.0;
     marker.color.g = 1.0;
-    marker.color.b = 188.0 / 255.0; // 青色
+    marker.color.b = 188.0 / 255.0;
     marker.color.a = 0.3;
-
-    // ライフタイムを0に設定して永続的に表示
     marker.lifetime = rclcpp::Duration(0, 0);
 
-    // ポイントを追加
     for (const auto &point : trajectory)
     {
       geometry_msgs::msg::Point geom_point;
@@ -235,21 +161,15 @@ namespace ball_detector
     marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;
     marker.action = visualization_msgs::msg::Marker::ADD;
 
-    // 各点のスケール
-    marker.scale.x = 0.05; // ボールの点の半径
+    marker.scale.x = 0.05;
     marker.scale.y = 0.05;
     marker.scale.z = 0.05;
-
-    // ボールの点の色
     marker.color.r = 0.0;
     marker.color.g = 1.0;
-    marker.color.b = 0.0; // 緑色
-    marker.color.a = 0.3; // 完全不透明
-
-    // ライフタイムを0に設定して永続的に表示
+    marker.color.b = 0.0;
+    marker.color.a = 0.3;
     marker.lifetime = rclcpp::Duration(0, 0);
 
-    // 過去の検出点を追加（最大10点）
     for (const auto &point : past_points)
     {
       geometry_msgs::msg::Point geom_point;

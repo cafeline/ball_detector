@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_set>
 #include <rclcpp/rclcpp.hpp>
-
+#include "visualization_msgs/msg/marker_array.hpp"
 
 // ユーティリティ関数のプロトタイプ
 std::string voxel_to_key(int x, int y, int z);

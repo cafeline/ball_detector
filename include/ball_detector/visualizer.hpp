@@ -4,9 +4,10 @@
 #include "rclcpp/rclcpp.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
-#include "ball_detector/clustering.hpp" // clustering.hpp をインクルード (VoxelCluster を使用するため)
+#include "ball_detector/clustering.hpp" // Clustering.hpp をインクルード (VoxelCluster 等を使用するため)
 #include <deque>
 #include "sensor_msgs/msg/point_cloud2.hpp"
+#include "ball_detector/types.hpp"
 
 namespace ball_detector
 {
@@ -16,9 +17,8 @@ namespace ball_detector
     Visualizer(const Parameters &params);
     ~Visualizer() = default;
 
-    visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<VoxelCluster> &clusters);
-    visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(
-        const std::vector<VoxelCluster> &clusters, const Clustering *clustering);
+    // 引数は std::vector<ClusterInfo> のみ
+    visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<ClusterInfo> &cluster_infos);
     visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid, const std_msgs::msg::Header &header);
     void update_trajectory(const Point3D &centroid, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
     visualization_msgs::msg::Marker create_trajectory_marker(const std::deque<Point3D> &trajectory, const std_msgs::msg::Header &header);

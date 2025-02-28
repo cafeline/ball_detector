@@ -98,7 +98,7 @@ namespace ball_detector
   void BallDetectorNode::publish_visualization(const DetectionResult &result, const std_msgs::msg::Header &header)
   {
     // BallDetectorCore側で実装した処理を呼び出すだけにする
-    visualization_msgs::msg::MarkerArray voxel_marker_array = ball_detector_core_->create_voxel_cluster_markers(result.clusters, header);
+    visualization_msgs::msg::MarkerArray voxel_marker_array = ball_detector_core_->visualizer_->create_voxel_cluster_markers(result.clusters);
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
     sensor_msgs::msg::PointCloud2 remaining_cloud = pointcloud_processor->vector_to_PC2(result.processed_points);
