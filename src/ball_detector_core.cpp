@@ -27,8 +27,8 @@ namespace ball_detector
     // ボクセル化
     std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
 
-    // クラスタリング
-    std::vector<VoxelCluster> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
+    // クラスタリング: 戻り値は ClusterInfo の vector となる
+    std::vector<ClusterInfo> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
 
     // クラスタの処理
     clustering_->process_clusters(processed_points, clusters, current_time, dt);
@@ -45,7 +45,7 @@ namespace ball_detector
     return DetectionResult{ball_position, clusters, processed_points};
   }
 
-  Point3D BallDetectorCore::calculate_ball_position(const std::vector<VoxelCluster> &clusters)
+  Point3D BallDetectorCore::calculate_ball_position(const std::vector<ClusterInfo> &clusters)
   {
     const auto &dynamic_ball_indices = clustering_->get_dynamic_ball_cluster_indices();
     std::vector<Point3D> candidate_points;
@@ -53,8 +53,9 @@ namespace ball_detector
     // 動的かつボール以下のサイズのクラスタから全ての点を収集
     for (const auto &index : dynamic_ball_indices)
     {
-      const VoxelCluster &cluster = clusters[index];
-      candidate_points.insert(candidate_points.end(), cluster.points.begin(), cluster.points.end());
+      // ClusterInfo の中の cluster が VoxelCluster となっているので、点集合は cluster.points としてアクセス
+      const ClusterInfo &cluster = clusters[index];
+      candidate_points.insert(candidate_points.end(), cluster.cluster.points.begin(), cluster.cluster.points.end());
     }
 
     if (candidate_points.size() < 2)

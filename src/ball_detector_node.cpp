@@ -13,7 +13,7 @@ namespace ball_detector
 
   void BallDetectorNode::load_parameters()
   {
-    // パラメータの読み込み処理（BallDetectorクラスから移動）
+    // パラメータの読み込み処理
     params_.min_x = this->get_parameter("min_x").as_double();
     params_.max_x = this->get_parameter("max_x").as_double();
     params_.min_y = this->get_parameter("min_y").as_double();
@@ -70,6 +70,7 @@ namespace ball_detector
     // 視覚化
     publish_visualization(result, msg->header);
 
+    // 実行時間のログ出力など必要に応じて
     // RCLCPP_INFO(this->get_logger(), "exec time: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
   }
 
@@ -96,7 +97,16 @@ namespace ball_detector
 
   void BallDetectorNode::publish_visualization(const DetectionResult &result, const std_msgs::msg::Header &header)
   {
-    visualization_msgs::msg::MarkerArray voxel_marker_array = ball_detector_core_->visualizer_->create_voxel_cluster_markers(result.clusters, ball_detector_core_->clustering_.get());
+    // ClusterInfo の vector から、各クラスタの VoxelCluster を抽出
+    std::vector<VoxelCluster> voxel_clusters;
+    voxel_clusters.reserve(result.clusters.size());
+    for (const auto &ci : result.clusters)
+    {
+      voxel_clusters.push_back(ci.cluster);
+    }
+
+    visualization_msgs::msg::MarkerArray voxel_marker_array =
+        ball_detector_core_->visualizer_->create_voxel_cluster_markers(voxel_clusters, ball_detector_core_->clustering_.get());
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
     sensor_msgs::msg::PointCloud2 remaining_cloud = pointcloud_processor->vector_to_PC2(result.processed_points);
@@ -110,9 +120,12 @@ namespace ball_detector
     ball_publisher_->publish(marker);
 
     ball_detector_core_->visualizer_->update_trajectory(result.ball_position, remaining_cloud);
-    visualization_msgs::msg::Marker trajectory_marker = ball_detector_core_->visualizer_->create_trajectory_marker(ball_detector_core_->visualizer_->ball_trajectory_points_, header);
+    visualization_msgs::msg::Marker trajectory_marker =
+        ball_detector_core_->visualizer_->create_trajectory_marker(ball_detector_core_->visualizer_->ball_trajectory_points_, header);
     trajectory_publisher_->publish(trajectory_marker);
-    visualization_msgs::msg::Marker past_points_marker = ball_detector_core_->visualizer_->create_past_points_marker(ball_detector_core_->visualizer_->past_points_, header);
+
+    visualization_msgs::msg::Marker past_points_marker =
+        ball_detector_core_->visualizer_->create_past_points_marker(ball_detector_core_->visualizer_->past_points_, header);
     past_points_publisher_->publish(past_points_marker);
   }
 

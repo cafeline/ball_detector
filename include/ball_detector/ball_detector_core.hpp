@@ -15,7 +15,7 @@ namespace ball_detector
   struct DetectionResult
   {
     Point3D ball_position;
-    std::vector<VoxelCluster> clusters;
+    std::vector<ClusterInfo> clusters;
     std::vector<Point3D> processed_points;
   };
 
@@ -28,7 +28,7 @@ namespace ball_detector
     void set_params(const Parameters &params);
     DetectionResult detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt);
 
-    Point3D calculate_ball_position(const std::vector<VoxelCluster> &clusters);
+    Point3D calculate_ball_position(const std::vector<ClusterInfo> &clusters);
 
     std::unique_ptr<Clustering> clustering_;
     std::unique_ptr<VoxelProcessor> voxel_processor_;
