@@ -58,6 +58,13 @@ struct VoxelCluster
   VoxelCluster() : total_point_count(0), cluster_color{1.0f, 0.0f, 0.0f, 1.0f} {}
 };
 
+// クラスタの情報（クラスタ本体とその一意なインデックス）を保持する構造体
+struct ClusterInfo
+{
+  size_t index;         // クラスタに対する一意のID
+  VoxelCluster cluster; // クラスタ本体
+};
+
 // クラスタトラック情報
 struct ClusterTrack
 {

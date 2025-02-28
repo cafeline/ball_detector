@@ -97,16 +97,8 @@ namespace ball_detector
 
   void BallDetectorNode::publish_visualization(const DetectionResult &result, const std_msgs::msg::Header &header)
   {
-    // ClusterInfo の vector から、各クラスタの VoxelCluster を抽出
-    std::vector<VoxelCluster> voxel_clusters;
-    voxel_clusters.reserve(result.clusters.size());
-    for (const auto &ci : result.clusters)
-    {
-      voxel_clusters.push_back(ci.cluster);
-    }
-
-    visualization_msgs::msg::MarkerArray voxel_marker_array =
-        ball_detector_core_->visualizer_->create_voxel_cluster_markers(voxel_clusters, ball_detector_core_->clustering_.get());
+    // BallDetectorCore側で実装した処理を呼び出すだけにする
+    visualization_msgs::msg::MarkerArray voxel_marker_array = ball_detector_core_->create_voxel_cluster_markers(result.clusters, header);
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
     sensor_msgs::msg::PointCloud2 remaining_cloud = pointcloud_processor->vector_to_PC2(result.processed_points);

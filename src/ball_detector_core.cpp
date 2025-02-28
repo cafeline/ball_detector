@@ -75,4 +75,17 @@ namespace ball_detector
 
     return Point3D{(point1.x + point2.x) / 2.0, (point1.y + point2.y) / 2.0, (point1.z + point2.z) / 2.0};
   }
+
+  // 新規追加: DetectionResultで返されたクラスタ情報からVoxelClusterを抽出し、
+  // Visualizer::create_voxel_cluster_markers() を呼び出す処理
+  visualization_msgs::msg::MarkerArray BallDetectorCore::create_voxel_cluster_markers(const std::vector<ClusterInfo> &clusters, const std_msgs::msg::Header &header)
+  {
+    std::vector<VoxelCluster> voxel_clusters;
+    voxel_clusters.reserve(clusters.size());
+    for (const auto &ci : clusters)
+    {
+      voxel_clusters.push_back(ci.cluster);
+    }
+    return visualizer_->create_voxel_cluster_markers(voxel_clusters, clustering_.get());
+  }
 }

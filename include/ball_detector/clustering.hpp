@@ -8,12 +8,6 @@
 #include <unordered_set>
 #include <rclcpp/rclcpp.hpp>
 
-// クラスタの情報（クラスタ本体とその一意なインデックス）を保持する構造体
-struct ClusterInfo
-{
-  size_t index;         // クラスタに対する一意のID
-  VoxelCluster cluster; // クラスタ本体
-};
 
 // ユーティリティ関数のプロトタイプ
 std::string voxel_to_key(int x, int y, int z);
