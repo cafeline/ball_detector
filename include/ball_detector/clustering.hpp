@@ -4,7 +4,9 @@
 #include <vector>
 #include <string>
 #include <rclcpp/rclcpp.hpp>
-#include "ball_detector/types.hpp"
+#include "ball_detector/geometry_types.hpp"
+#include "ball_detector/clustering_types.hpp"
+#include "ball_detector/parameters.hpp"
 
 class ClusterCreator
 {
@@ -17,6 +19,8 @@ private:
   void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
   std::vector<std::string> get_adjacent_voxels(const std::string &key) const;
   bool point_in_voxel(const Point3D &point, const Voxel &voxel) const;
+  std::string voxel_to_key(int x, int y, int z);
+  std::string point_to_voxel_key(const Point3D &point, const Parameters &params);
   Parameters params_;
 };
 
@@ -33,12 +37,7 @@ public:
 private:
   bool is_ball_size(double size_x, double size_y, double size_z) const;
   bool is_near_boundary(const Point3D &centroid) const;
-  bool are_centroids_close(const Point3D &a, const Point3D &b) const;
   Parameters params_;
 };
-
-// ユーティリティ関数
-std::string voxel_to_key(int x, int y, int z);
-std::string point_to_voxel_key(const Point3D &point, const Parameters &params);
 
 #endif // BALL_DETECTOR_CLUSTERING_HPP

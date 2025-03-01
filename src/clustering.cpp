@@ -270,20 +270,12 @@ Point3D ClusterClassifier::calculate_cluster_centroid(const VoxelCluster &cluste
   return Point3D{sum_x / num_points, sum_y / num_points, sum_z / num_points};
 }
 
-bool ClusterClassifier::are_centroids_close(const Point3D &a, const Point3D &b) const
-{
-  double dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-  double tol = 1e-6;
-  return (dx * dx + dy * dy + dz * dz) < (tol * tol);
-}
-
-// 再利用可能なユーティリティ関数
-std::string voxel_to_key(int x, int y, int z)
+std::string ClusterCreator::voxel_to_key(int x, int y, int z)
 {
   return std::to_string(x) + "," + std::to_string(y) + "," + std::to_string(z);
 }
 
-std::string point_to_voxel_key(const Point3D &point, const Parameters &params)
+std::string ClusterCreator::point_to_voxel_key(const Point3D &point, const Parameters &params)
 {
   int vx = static_cast<int>((point.x - params.min_x) / params.voxel_size_x);
   int vy = static_cast<int>((point.y - params.min_y) / params.voxel_size_y);

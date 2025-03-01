@@ -1,7 +1,8 @@
 #ifndef BALL_DETECTOR_TRACKING_UTILS_HPP
 #define BALL_DETECTOR_TRACKING_UTILS_HPP
 
-#include "ball_detector/types.hpp"
+#include "ball_detector/geometry_types.hpp"
+#include "ball_detector/clustering_types.hpp"
 #include <cmath>
 
 // 座標計算などの共通ユーティリティ

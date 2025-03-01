@@ -28,16 +28,16 @@ namespace ball_detector
 
   DetectionResult BallDetectorCore::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)
   {
-    // クラスタリング（ClusterCreatorを直接使用）
+    // クラスタリング
     std::vector<ClusterInfo> clusters = cluster_creator_->create_voxel_clustering(processed_points);
 
-    // クラスタの処理（クラス分類）（ClusterClassifierを直接使用）
+    // クラスタの処理
     cluster_classifier_->identify_ball_candidates(clusters);
 
-    // 動的クラスタの識別（トラッキング処理）
+    // 動的クラスタの識別
     tracking_manager_->identify_dynamic_clusters(clusters, current_time, dt, params_);
 
-    // 境界付近のクラスタをフィルタリング（ClusterClassifierを直接使用）
+    // 境界付近のクラスタをフィルタリング
     cluster_classifier_->filter_clusters_near_boundaries(clusters);
 
     // ボール位置の計算

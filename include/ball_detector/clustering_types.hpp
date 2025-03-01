@@ -1,22 +1,9 @@
 #pragma once
 
 #include <vector>
+#include <cstddef>
 #include <array>
-#include <rclcpp/rclcpp.hpp>
-
-// 3次元ポイント構造体
-struct Point3D
-{
-  float x;
-  float y;
-  float z;
-};
-
-struct LaserPoint
-{
-  double x = 0.0;
-  double y = 0.0;
-};
+#include "ball_detector/geometry_types.hpp"
 
 // ボクセル構造体
 struct Voxel
@@ -69,18 +56,4 @@ struct ClusterInfo
   size_t index;
   VoxelCluster cluster;
   ClusterType type = ClusterType::UNKNOWN;
-};
-
-// パラメータ構造体
-struct Parameters
-{
-  double min_x, max_x, min_y, max_y, min_z, max_z;
-  double voxel_size_x, voxel_size_y, voxel_size_z;
-
-  int voxel_search_range;
-  double ball_radius;
-
-  double max_distance_for_association;
-  double ball_vel_min;
-  double livox_pitch;
 };
