@@ -8,7 +8,6 @@ namespace ball_detector
 {
   BallDetectorCore::BallDetectorCore()
   {
-    voxel_processor_ = std::make_unique<VoxelProcessor>(params_);
     clustering_ = std::make_unique<Clustering>(params_);
     visualizer_ = std::make_unique<Visualizer>(params_);
   }
@@ -17,17 +16,15 @@ namespace ball_detector
   void BallDetectorCore::set_params(const Parameters &params)
   {
     params_ = params;
-    voxel_processor_ = std::make_unique<VoxelProcessor>(params_);
     clustering_ = std::make_unique<Clustering>(params_);
     visualizer_ = std::make_unique<Visualizer>(params_);
   }
 
   DetectionResult BallDetectorCore::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)
   {
-    // ボクセル化
-    std::vector<Voxel> voxels = voxel_processor_->create_voxel(processed_points);
+    std::vector<Voxel> voxels = clustering_->cluster_manager_.cluster_creator_.create_voxel(processed_points);
 
-    // クラスタリング: 戻り値は ClusterInfo の vector となる
+    // クラスタリング
     std::vector<ClusterInfo> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
 
     // クラスタの処理
@@ -37,9 +34,7 @@ namespace ball_detector
     Point3D ball_position = calculate_ball_position(clusters);
 
     // ボールクラスタの精緻化
-    clustering_->refine_ball_clusters(clusters, ball_position);
-
-    visualizer_->clustering_ = std::make_unique<Clustering>(*clustering_);
+    clustering_->tracking_manager_->refine_ball_clusters(clusters, ball_position, params_);
 
     // 検出結果とビジュアライゼーションデータを返す
     return DetectionResult{ball_position, clusters, processed_points};

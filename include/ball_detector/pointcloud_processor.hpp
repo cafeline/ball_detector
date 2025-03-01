@@ -6,17 +6,6 @@
 #include <memory>
 #include <array>
 
-class VoxelProcessor
-{
-public:
-  VoxelProcessor(const Parameters &params);
-
-  std::vector<Voxel> create_voxel(const std::vector<Point3D> &points);
-
-private:
-  Parameters params_;
-};
-
 class PointCloudProcessor
 {
 public:

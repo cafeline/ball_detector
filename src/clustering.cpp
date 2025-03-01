@@ -131,6 +131,36 @@ bool ClusterCreator::point_in_voxel(const Point3D &point, const Voxel &voxel) co
          point.z < params_.min_z + (voxel.z + 1) * params_.voxel_size_z;
 }
 
+// 新しく追加する関数
+std::vector<Voxel> ClusterCreator::create_voxel(const std::vector<Point3D> &points)
+{
+  std::unordered_map<std::string, Voxel> occupied_voxels;
+  for (const auto &point : points)
+  {
+    int vx = static_cast<int>((point.x - params_.min_x) / params_.voxel_size_x);
+    int vy = static_cast<int>((point.y - params_.min_y) / params_.voxel_size_y);
+    int vz = static_cast<int>((point.z - params_.min_z) / params_.voxel_size_z);
+    std::string key = std::to_string(vx) + "," + std::to_string(vy) + "," + std::to_string(vz);
+    if (occupied_voxels.find(key) == occupied_voxels.end())
+    {
+      occupied_voxels[key] = Voxel(vx, vy, vz);
+    }
+    else
+    {
+      occupied_voxels[key].increment();
+    }
+  }
+
+  std::vector<Voxel> result;
+  result.reserve(occupied_voxels.size());
+  for (const auto &pair : occupied_voxels)
+  {
+    result.push_back(pair.second);
+  }
+
+  return result;
+}
+
 // ClusterClassifier実装
 ClusterClassifier::ClusterClassifier(const Parameters &params)
     : params_(params)
@@ -246,155 +276,13 @@ bool ClusterClassifier::are_centroids_close(const Point3D &a, const Point3D &b) 
   return (dx * dx + dy * dy + dz * dz) < (tol * tol);
 }
 
-// ClusterTracker実装
-ClusterTracker::ClusterTracker()
-    : cluster_tracking_()
-{
-}
-
-void ClusterTracker::identify_dynamic_clusters(std::vector<ClusterInfo> &clusters,
-                                               rclcpp::Time current_time,
-                                               double dt,
-                                               const Parameters &params)
-{
-  // 動的クラスタの識別処理
-  std::vector<VoxelCluster> raw_clusters;
-  for (const auto &ci : clusters)
-  {
-    raw_clusters.push_back(ci.cluster);
-  }
-
-  // クラスタの関連付け
-  std::vector<int> assignments = cluster_tracking_.associateClusters(raw_clusters,
-                                                                     params.max_distance_for_association,
-                                                                     current_time,
-                                                                     dt);
-
-  // 速度ベースでフィルタリング
-  std::vector<VoxelCluster> dynamic_clusters = cluster_tracking_.filterBySpeed(raw_clusters,
-                                                                               assignments,
-                                                                               dt,
-                                                                               params.ball_vel_min);
-
-  // トラックの更新
-  cluster_tracking_.removeMissingTracks();
-
-  // 動的クラスタのマーキング
-  mark_dynamic_clusters(clusters, dynamic_clusters);
-}
-
-void ClusterTracker::mark_dynamic_clusters(std::vector<ClusterInfo> &clusters,
-                                           const std::vector<VoxelCluster> &dynamic_clusters)
-{
-  // すべてのクラスタの動的フラグを初期化（既存のtypeを保持）
-  for (const auto &dyn_cluster : dynamic_clusters)
-  {
-    for (auto &ci : clusters)
-    {
-      if (clusters_match(ci.cluster, dyn_cluster) && ci.type == ClusterType::BALL_CANDIDATE)
-      {
-        ci.type = ClusterType::DYNAMIC_BALL;
-        break;
-      }
-    }
-  }
-}
-
-bool ClusterTracker::clusters_match(const VoxelCluster &a, const VoxelCluster &b) const
-{
-  if (a.voxels.size() != b.voxels.size())
-    return false;
-
-  // 単純化のためにヴォクセル数で比較
-  for (size_t i = 0; i < a.voxels.size(); ++i)
-  {
-    if (a.voxels[i].x != b.voxels[i].x ||
-        a.voxels[i].y != b.voxels[i].y ||
-        a.voxels[i].z != b.voxels[i].z)
-    {
-      return false;
-    }
-  }
-  return true;
-}
-
-void ClusterTracker::refine_ball_clusters(std::vector<ClusterInfo> &clusters,
-                                          const Point3D &ball_position,
-                                          const Parameters &params)
-{
-  if (is_zero_position(ball_position))
-  {
-    return;
-  }
-
-  size_t best_cluster_idx = find_closest_ball_cluster(clusters, ball_position);
-  if (best_cluster_idx == SIZE_MAX)
-  {
-    return;
-  }
-
-  update_ball_cluster(clusters, best_cluster_idx, ball_position);
-}
-
-bool ClusterTracker::is_zero_position(const Point3D &position) const
-{
-  const double epsilon = 1e-9;
-  return std::abs(position.x) < epsilon &&
-         std::abs(position.y) < epsilon &&
-         std::abs(position.z) < epsilon;
-}
-
-size_t ClusterTracker::find_closest_ball_cluster(const std::vector<ClusterInfo> &clusters,
-                                                 const Point3D &ball_position) const
-{
-  double min_dist = std::numeric_limits<double>::max();
-  size_t best_id = SIZE_MAX;
-
-  for (const auto &ci : clusters)
-  {
-    if (ci.type == ClusterType::DYNAMIC_BALL)
-    {
-      Point3D centroid = ClusterClassifier(Parameters()).calculate_cluster_centroid(ci.cluster);
-      double dist = calculate_distance(centroid, ball_position);
-      if (dist < min_dist)
-      {
-        min_dist = dist;
-        best_id = ci.index;
-      }
-    }
-  }
-  return best_id;
-}
-
-double ClusterTracker::calculate_distance(const Point3D &a, const Point3D &b) const
-{
-  double dx = a.x - b.x;
-  double dy = a.y - b.y;
-  double dz = a.z - b.z;
-  return std::sqrt(dx * dx + dy * dy + dz * dz);
-}
-
-void ClusterTracker::update_ball_cluster(std::vector<ClusterInfo> &clusters,
-                                         size_t best_idx,
-                                         const Point3D &ball_position)
-{
-  if (best_idx < clusters.size())
-  {
-    clusters[best_idx].cluster.points.clear();
-    clusters[best_idx].cluster.points.push_back(ball_position);
-
-    // タイプを明示的に設定
-    clusters[best_idx].type = ClusterType::DYNAMIC_BALL;
-  }
-}
-
 // ClusterManager実装
 ClusterManager::ClusterManager(const Parameters &params)
     : params_(params),
       cluster_creator_(params),
-      cluster_classifier_(params),
-      cluster_tracker_()
+      cluster_classifier_(params)
 {
+  tracking_manager_ = std::make_unique<TrackingManager>();
 }
 
 std::vector<ClusterInfo> ClusterManager::create_voxel_clustering(const std::vector<Point3D> &points,
@@ -412,7 +300,7 @@ void ClusterManager::process_clusters(const std::vector<Point3D> &processed_poin
   cluster_classifier_.identify_ball_candidates(clusters);
 
   // 動的クラスタの識別
-  cluster_tracker_.identify_dynamic_clusters(clusters, current_time, dt, params_);
+  tracking_manager_->identify_dynamic_clusters(clusters, current_time, dt, params_);
 
   // 境界付近のクラスタをフィルタリング
   cluster_classifier_.filter_clusters_near_boundaries(clusters);
@@ -421,13 +309,14 @@ void ClusterManager::process_clusters(const std::vector<Point3D> &processed_poin
 void ClusterManager::refine_ball_clusters(std::vector<ClusterInfo> &clusters,
                                           const Point3D &ball_position)
 {
-  cluster_tracker_.refine_ball_clusters(clusters, ball_position, params_);
+  tracking_manager_->refine_ball_clusters(clusters, ball_position, params_);
 }
 
 // Clustering（ラッパークラス）実装
 Clustering::Clustering(const Parameters &params)
     : params_(params), cluster_manager_(params)
 {
+  tracking_manager_ = std::make_unique<TrackingManager>();
 }
 
 std::vector<ClusterInfo> Clustering::create_voxel_clustering(const std::vector<Point3D> &points,
@@ -442,12 +331,6 @@ void Clustering::process_clusters(const std::vector<Point3D> &processed_points,
                                   double dt)
 {
   cluster_manager_.process_clusters(processed_points, clusters, current_time, dt);
-}
-
-void Clustering::refine_ball_clusters(std::vector<ClusterInfo> &clusters,
-                                      const Point3D &ball_position)
-{
-  cluster_manager_.refine_ball_clusters(clusters, ball_position);
 }
 
 // 再利用可能なユーティリティ関数

@@ -5,7 +5,7 @@
 #include <string>
 #include <rclcpp/rclcpp.hpp>
 #include "ball_detector/types.hpp"
-#include "ball_detector/cluster_tracking.hpp"
+#include "ball_detector/tracking.hpp"
 
 class ClusterCreator
 {
@@ -13,6 +13,7 @@ public:
   explicit ClusterCreator(const Parameters &params);
   std::vector<ClusterInfo> create_voxel_clustering(const std::vector<Point3D> &points,
                                                    const std::vector<Voxel> &voxels);
+  std::vector<Voxel> create_voxel(const std::vector<Point3D> &points);
 
 private:
   void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
@@ -38,32 +39,6 @@ private:
   Parameters params_;
 };
 
-class ClusterTracker
-{
-public:
-  ClusterTracker();
-  void identify_dynamic_clusters(std::vector<ClusterInfo> &clusters,
-                                 rclcpp::Time current_time,
-                                 double dt,
-                                 const Parameters &params);
-  void refine_ball_clusters(std::vector<ClusterInfo> &clusters,
-                            const Point3D &ball_position,
-                            const Parameters &params);
-
-private:
-  ClusterTracking cluster_tracking_;
-  void mark_dynamic_clusters(std::vector<ClusterInfo> &clusters,
-                             const std::vector<VoxelCluster> &dynamic_clusters);
-  bool clusters_match(const VoxelCluster &a, const VoxelCluster &b) const;
-  bool is_zero_position(const Point3D &position) const;
-  size_t find_closest_ball_cluster(const std::vector<ClusterInfo> &clusters,
-                                   const Point3D &ball_position) const;
-  double calculate_distance(const Point3D &a, const Point3D &b) const;
-  void update_ball_cluster(std::vector<ClusterInfo> &clusters,
-                           size_t best_idx,
-                           const Point3D &ball_position);
-};
-
 class ClusterManager
 {
 public:
@@ -76,12 +51,12 @@ public:
                         double dt);
   void refine_ball_clusters(std::vector<ClusterInfo> &clusters,
                             const Point3D &ball_position);
+  ClusterCreator cluster_creator_;
 
 private:
   Parameters params_;
-  ClusterCreator cluster_creator_;
   ClusterClassifier cluster_classifier_;
-  ClusterTracker cluster_tracker_;
+  std::unique_ptr<TrackingManager> tracking_manager_;
 };
 
 // ユーティリティ関数
@@ -101,12 +76,11 @@ public:
                         rclcpp::Time current_time,
                         double dt);
 
-  void refine_ball_clusters(std::vector<ClusterInfo> &clusters,
-                            const Point3D &ball_position);
+  std::unique_ptr<TrackingManager> tracking_manager_;
+  ClusterManager cluster_manager_;
 
 private:
   Parameters params_;
-  ClusterManager cluster_manager_;
 };
 
 #endif // BALL_DETECTOR_CLUSTERING_HPP
