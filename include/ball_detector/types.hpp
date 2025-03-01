@@ -54,14 +54,22 @@ struct VoxelCluster
   std::vector<Point3D> points;        // クラスタ内の全点群データ
 };
 
+enum class ClusterType
+{
+  UNKNOWN,
+  STATIC,
+  BALL_CANDIDATE,
+  DYNAMIC_BALL
+};
+
 // クラスタの情報（クラスタ本体とその一意なインデックス）を保持する構造体
 struct ClusterInfo
 {
-  size_t index;         // クラスタに対する一意のID（トラッキングなどで必要な場合は残す）
-  VoxelCluster cluster; // クラスタ本体
-
+  size_t index;
+  VoxelCluster cluster;
   bool is_ball_cluster = false;
   bool is_dynamic_ball = false;
+  ClusterType type = ClusterType::UNKNOWN;
 };
 
 // クラスタトラック情報
