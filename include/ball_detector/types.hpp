@@ -52,10 +52,6 @@ struct VoxelCluster
   std::vector<Voxel> voxels;          // クラスタ内のボクセル
   int total_point_count;              // クラスタ内の総点群数
   std::vector<Point3D> points;        // クラスタ内の全点群データ
-  std::array<float, 4> cluster_color; // クラスタの色 (RGBA)
-
-  // デフォルトコンストラクタ
-  VoxelCluster() : total_point_count(0), cluster_color{1.0f, 0.0f, 0.0f, 1.0f} {}
 };
 
 // クラスタの情報（クラスタ本体とその一意なインデックス）を保持する構造体

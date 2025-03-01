@@ -100,30 +100,26 @@ void Clustering::collect_cluster_points(VoxelCluster &cluster, const std::vector
 }
 
 void Clustering::calculate_cluster_size(const VoxelCluster &cluster,
-                                        const std::vector<Point3D> &points,
                                         double &size_x,
                                         double &size_y,
                                         double &size_z) const
 {
-  double min_x = std::numeric_limits<double>::max(), max_x = std::numeric_limits<double>::lowest();
-  double min_y = std::numeric_limits<double>::max(), max_y = std::numeric_limits<double>::lowest();
-  double min_z = std::numeric_limits<double>::max(), max_z = std::numeric_limits<double>::lowest();
+  double min_x = std::numeric_limits<double>::max();
+  double min_y = std::numeric_limits<double>::max();
+  double min_z = std::numeric_limits<double>::max();
+  double max_x = std::numeric_limits<double>::lowest();
+  double max_y = std::numeric_limits<double>::lowest();
+  double max_z = std::numeric_limits<double>::lowest();
 
-  for (const auto &point : points)
+  // 既に抽出されたクラスタ内の点群を使う
+  for (const auto &point : cluster.points)
   {
-    for (const auto &voxel : cluster.voxels)
-    {
-      if (point_in_voxel(point, voxel))
-      {
-        min_x = std::min(min_x, static_cast<double>(point.x));
-        max_x = std::max(max_x, static_cast<double>(point.x));
-        min_y = std::min(min_y, static_cast<double>(point.y));
-        max_y = std::max(max_y, static_cast<double>(point.y));
-        min_z = std::min(min_z, static_cast<double>(point.z));
-        max_z = std::max(max_z, static_cast<double>(point.z));
-        break;
-      }
-    }
+    min_x = std::min(min_x, static_cast<double>(point.x));
+    max_x = std::max(max_x, static_cast<double>(point.x));
+    min_y = std::min(min_y, static_cast<double>(point.y));
+    max_y = std::max(max_y, static_cast<double>(point.y));
+    min_z = std::min(min_z, static_cast<double>(point.z));
+    max_z = std::max(max_z, static_cast<double>(point.z));
   }
   size_x = max_x - min_x;
   size_y = max_y - min_y;
@@ -131,31 +127,14 @@ void Clustering::calculate_cluster_size(const VoxelCluster &cluster,
 }
 
 void Clustering::process_clusters(const std::vector<Point3D> &processed_points,
-                                  const std::vector<ClusterInfo> &clusters,
+                                  std::vector<ClusterInfo> &clusters,
                                   rclcpp::Time current_time,
                                   double dt)
 {
-  // 現在のクラスタを保存
-  current_clusters_ = clusters;
+  // mark_ball_clusters の呼び出し時に、外部の processed_points は渡さない
+  mark_ball_clusters(clusters);
 
-  // ボールクラスタのインデックス計算
-  calc_ball_clusters_indices(clusters, processed_points);
-
-  // ClusterTracking を使って動的クラスタを識別
-  std::vector<ClusterInfo> dynamic_clusters = identify_dynamic_clusters(clusters, current_time, dt);
-
-  // 動的クラスタのインデックス計算
-  calc_dynamic_cluster_indices(clusters, dynamic_clusters);
-  calc_dynamic_ball_cluster_indices(clusters);
-
-  filter_dynamic_ball_clusters_near_boundaries(clusters);
-}
-
-std::vector<ClusterInfo> Clustering::identify_dynamic_clusters(const std::vector<ClusterInfo> &clusters,
-                                                               const rclcpp::Time &current_time,
-                                                               double dt)
-{
-  // 内部処理では、ClusterTracking は VoxelCluster の vector を使用しているため抽出
+  // 動的クラスタの識別
   std::vector<VoxelCluster> raw_clusters;
   for (const auto &ci : clusters)
   {
@@ -171,7 +150,6 @@ std::vector<ClusterInfo> Clustering::identify_dynamic_clusters(const std::vector
                                                                       params_.ball_vel_min);
   cluster_tracking_.removeMissingTracks();
 
-  // dyn_raw に含まれるクラスタに対応する ClusterInfo を返す（単純な比較例）
   std::vector<ClusterInfo> dynamic_clusters;
   for (const auto &ci : clusters)
   {
@@ -198,187 +176,14 @@ std::vector<ClusterInfo> Clustering::identify_dynamic_clusters(const std::vector
       }
     }
   }
-  return dynamic_clusters;
-}
 
-void Clustering::calc_ball_clusters_indices(const std::vector<ClusterInfo> &clusters,
-                                            const std::vector<Point3D> &points)
-{
-  ball_size_cluster_indices_.clear();
+  // 動的クラスタのマーク
+  mark_dynamic_clusters(clusters, dynamic_clusters);
 
-  for (const auto &ci : clusters)
-  {
-    double size_x, size_y, size_z;
-    calculate_cluster_size(ci.cluster, points, size_x, size_y, size_z);
-    if (is_ball_size(size_x, size_y, size_z))
-    {
-      ball_size_cluster_indices_.insert(ci.index);
-    }
-  }
-}
+  // 動的かつボールクラスタ（両方の条件を満たすもの）のみとするため、フィルタを実施
+  filter_dynamic_ball_clusters_near_boundaries(clusters);
 
-std::vector<ClusterInfo> Clustering::extract_clusters_by_indices(
-    const std::vector<ClusterInfo> &clusters,
-    const std::unordered_set<size_t> &indices)
-{
-  std::vector<ClusterInfo> result;
-  for (const auto &ci : clusters)
-  {
-    if (indices.find(ci.index) != indices.end())
-    {
-      result.push_back(ci);
-    }
-  }
-  return result;
-}
-
-std::vector<ClusterInfo> Clustering::extract_ball_clusters(const std::vector<ClusterInfo> &clusters)
-{
-  return extract_clusters_by_indices(clusters, ball_size_cluster_indices_);
-}
-
-std::vector<ClusterInfo> Clustering::extract_dynamic_ball_clusters(const std::vector<ClusterInfo> &clusters)
-{
-  return extract_clusters_by_indices(clusters, dynamic_ball_cluster_indices_);
-}
-
-void Clustering::calc_dynamic_ball_cluster_indices(const std::vector<ClusterInfo> &clusters)
-{
-  dynamic_ball_cluster_indices_ = set_intersection(ball_size_cluster_indices_, dynamic_cluster_indices_);
-}
-
-std::unordered_set<size_t> Clustering::set_intersection(
-    const std::unordered_set<size_t> &set1,
-    const std::unordered_set<size_t> &set2)
-{
-  std::unordered_set<size_t> result;
-  const auto &smaller = (set1.size() < set2.size()) ? set1 : set2;
-  const auto &larger = (set1.size() < set2.size()) ? set2 : set1;
-
-  for (auto item : smaller)
-  {
-    if (larger.find(item) != larger.end())
-    {
-      result.insert(item);
-    }
-  }
-  return result;
-}
-
-void Clustering::calc_dynamic_cluster_indices(const std::vector<ClusterInfo> &clusters,
-                                              const std::vector<ClusterInfo> &dynamic_clusters)
-{
-  dynamic_cluster_indices_.clear();
-
-  // 元クラスタの中心点をあらかじめ計算
-  std::vector<Point3D> cluster_centroids;
-  cluster_centroids.reserve(clusters.size());
-  for (const auto &ci : clusters)
-  {
-    cluster_centroids.push_back(calculate_cluster_centroid(ci.cluster));
-  }
-
-  // 動的クラスタとの対応付け
-  for (const auto &dyn_ci : dynamic_clusters)
-  {
-    Point3D dyn_center = calculate_cluster_centroid(dyn_ci.cluster);
-    size_t closest_idx = find_closest_centroid(cluster_centroids, dyn_center);
-    if (closest_idx != SIZE_MAX)
-    {
-      dynamic_cluster_indices_.insert(clusters[closest_idx].index);
-    }
-  }
-}
-
-size_t Clustering::find_closest_centroid(
-    const std::vector<Point3D> &centroids,
-    const Point3D &target) const
-{
-  const double tolerance_squared = 1e-6 * 1e-6;
-  double min_dist_squared = std::numeric_limits<double>::max();
-  size_t closest_idx = SIZE_MAX;
-
-  for (size_t i = 0; i < centroids.size(); ++i)
-  {
-    double dx = centroids[i].x - target.x;
-    double dy = centroids[i].y - target.y;
-    double dz = centroids[i].z - target.z;
-    double dist_squared = dx * dx + dy * dy + dz * dz;
-
-    if (dist_squared < min_dist_squared)
-    {
-      min_dist_squared = dist_squared;
-      closest_idx = i;
-    }
-  }
-  return (min_dist_squared <= tolerance_squared) ? closest_idx : SIZE_MAX;
-}
-
-bool Clustering::is_ball_size(double size_x, double size_y, double size_z) const
-{
-  double max_diameter = 2 * params_.ball_radius;
-  return (size_x <= max_diameter &&
-          size_y <= max_diameter &&
-          size_z <= max_diameter);
-}
-
-Point3D Clustering::calculate_cluster_centroid(const VoxelCluster &cluster) const
-{
-  if (cluster.points.empty())
-  {
-    return Point3D{0.0, 0.0, 0.0};
-  }
-
-  float sum_x = 0.0;
-  float sum_y = 0.0;
-  float sum_z = 0.0;
-
-  for (const auto &point : cluster.points)
-  {
-    sum_x += point.x;
-    sum_y += point.y;
-    sum_z += point.z;
-  }
-
-  float num_points = static_cast<float>(cluster.points.size());
-  return Point3D{sum_x / num_points, sum_y / num_points, sum_z / num_points};
-}
-
-bool Clustering::are_centroids_close(const Point3D &a, const Point3D &b) const
-{
-  double dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-  double tol = 1e-6;
-  return (dx * dx + dy * dy + dz * dz) < (tol * tol);
-}
-
-void Clustering::filter_dynamic_ball_clusters_near_boundaries(const std::vector<ClusterInfo> &clusters)
-{
-  std::unordered_set<size_t> filtered_dynamic_ball;
-
-  for (auto id : dynamic_ball_cluster_indices_)
-  {
-    if (id < clusters.size() && !is_near_boundary(calculate_cluster_centroid(clusters[id].cluster)))
-    {
-      filtered_dynamic_ball.insert(id);
-    }
-    else
-    {
-      ball_size_cluster_indices_.erase(id);
-      dynamic_cluster_indices_.erase(id);
-    }
-  }
-  dynamic_ball_cluster_indices_ = filtered_dynamic_ball;
-}
-
-bool Clustering::is_near_boundary(const Point3D &centroid) const
-{
-  double buffer = 2.0;
-  return ((centroid.x - params_.min_x) < buffer * params_.voxel_size_x) ||
-         ((params_.max_x - centroid.x) < buffer * params_.voxel_size_x) ||
-         ((centroid.y - params_.min_y) < buffer * params_.voxel_size_y) ||
-         ((params_.max_y - centroid.y) < buffer * params_.voxel_size_y) ||
-         ((centroid.z - params_.min_z) < buffer * params_.voxel_size_z) ||
-         ((params_.max_z - centroid.z) < buffer * params_.voxel_size_z);
+  // 以降、clusters の各 ClusterInfo が is_ball_cluster, is_dynamic_ball のフラグで管理されるようになる
 }
 
 void Clustering::refine_ball_clusters(std::vector<ClusterInfo> &clusters, const Point3D &ball_position)
@@ -411,16 +216,16 @@ size_t Clustering::find_closest_ball_cluster(const std::vector<ClusterInfo> &clu
   double min_dist = std::numeric_limits<double>::max();
   size_t best_id = SIZE_MAX;
 
-  for (auto id : dynamic_ball_cluster_indices_)
+  for (const auto &ci : clusters)
   {
-    if (id < clusters.size())
+    if (ci.is_dynamic_ball)
     {
-      Point3D centroid = calculate_cluster_centroid(clusters[id].cluster);
+      Point3D centroid = calculate_cluster_centroid(ci.cluster);
       double dist = calculate_distance(centroid, ball_position);
       if (dist < min_dist)
       {
         min_dist = dist;
-        best_id = id;
+        best_id = ci.index;
       }
     }
   }
@@ -444,27 +249,9 @@ void Clustering::update_ball_cluster(std::vector<ClusterInfo> &clusters,
     clusters[best_idx].cluster.points.clear();
     clusters[best_idx].cluster.points.push_back(ball_position);
 
-    std::unordered_set<size_t> refined_set;
-    refined_set.insert(best_idx);
-    dynamic_ball_cluster_indices_ = refined_set;
-
-    if (ball_size_cluster_indices_.find(best_idx) != ball_size_cluster_indices_.end())
-    {
-      ball_size_cluster_indices_ = refined_set;
-    }
-    else
-    {
-      ball_size_cluster_indices_.clear();
-    }
-
-    if (dynamic_cluster_indices_.find(best_idx) != dynamic_cluster_indices_.end())
-    {
-      dynamic_cluster_indices_ = refined_set;
-    }
-    else
-    {
-      dynamic_cluster_indices_.clear();
-    }
+    // フラグを明示的に true に設定する
+    clusters[best_idx].is_ball_cluster = true;
+    clusters[best_idx].is_dynamic_ball = true;
   }
 }
 
@@ -512,4 +299,122 @@ inline std::string point_to_voxel_key(const Point3D &point, const Parameters &pa
   int vy = static_cast<int>((point.y - params.min_y) / params.voxel_size_y);
   int vz = static_cast<int>((point.z - params.min_z) / params.voxel_size_z);
   return voxel_to_key(vx, vy, vz);
+}
+
+void Clustering::mark_ball_clusters(std::vector<ClusterInfo> &clusters)
+{
+  for (auto &ci : clusters)
+  {
+    double size_x, size_y, size_z;
+    calculate_cluster_size(ci.cluster, size_x, size_y, size_z);
+    // 各クラスタ内部の点群からサイズを計算し、ボールサイズかどうかを判定
+    ci.is_ball_cluster = is_ball_size(size_x, size_y, size_z);
+  }
+}
+
+void Clustering::mark_dynamic_clusters(std::vector<ClusterInfo> &clusters, const std::vector<ClusterInfo> &dynamic_clusters)
+{
+  // まず全クラスタの動的フラグをクリア
+  for (auto &ci : clusters)
+  {
+    ci.is_dynamic_ball = false;
+  }
+  // 動的クラスタとして識別されたクラスタにフラグを立てる
+  for (const auto &dyn_ci : dynamic_clusters)
+  {
+    for (auto &ci : clusters)
+    {
+      if (ci.cluster.voxels.size() == dyn_ci.cluster.voxels.size())
+      {
+        bool match = true;
+        for (size_t i = 0; i < ci.cluster.voxels.size(); ++i)
+        {
+          if (ci.cluster.voxels[i].x != dyn_ci.cluster.voxels[i].x ||
+              ci.cluster.voxels[i].y != dyn_ci.cluster.voxels[i].y ||
+              ci.cluster.voxels[i].z != dyn_ci.cluster.voxels[i].z)
+          {
+            match = false;
+            break;
+          }
+        }
+        if (match)
+        {
+          // ここでボールサイズチェックを追加
+          double size_x, size_y, size_z;
+          calculate_cluster_size(ci.cluster, size_x, size_y, size_z);
+          if (is_ball_size(size_x, size_y, size_z))
+          {
+            ci.is_dynamic_ball = true;
+          }
+          break;
+        }
+      }
+    }
+  }
+}
+
+void Clustering::filter_dynamic_ball_clusters_near_boundaries(std::vector<ClusterInfo> &clusters)
+{
+  for (auto &ci : clusters)
+  {
+    if (ci.is_dynamic_ball)
+    {
+      Point3D centroid = calculate_cluster_centroid(ci.cluster);
+      // 境界近傍の場合はフラグをクリアする
+      if (is_near_boundary(centroid))
+      {
+        ci.is_dynamic_ball = false;
+        ci.is_ball_cluster = false; // 必要に応じて、ボールクラスタ判定もクリア
+      }
+    }
+  }
+}
+
+bool Clustering::is_near_boundary(const Point3D &centroid) const
+{
+  double buffer = 2.0;
+  bool near_boundary = ((centroid.x - params_.min_x) < buffer * params_.voxel_size_x) ||
+                       ((params_.max_x - centroid.x) < buffer * params_.voxel_size_x) ||
+                       ((centroid.y - params_.min_y) < buffer * params_.voxel_size_y) ||
+                       ((params_.max_y - centroid.y) < buffer * params_.voxel_size_y) ||
+                       ((centroid.z - params_.min_z) < buffer * params_.voxel_size_z) ||
+                       ((params_.max_z - centroid.z) < buffer * params_.voxel_size_z);
+  return near_boundary;
+}
+
+Point3D Clustering::calculate_cluster_centroid(const VoxelCluster &cluster) const
+{
+  if (cluster.points.empty())
+  {
+    return Point3D{0.0, 0.0, 0.0};
+  }
+
+  float sum_x = 0.0;
+  float sum_y = 0.0;
+  float sum_z = 0.0;
+
+  for (const auto &point : cluster.points)
+  {
+    sum_x += point.x;
+    sum_y += point.y;
+    sum_z += point.z;
+  }
+
+  float num_points = static_cast<float>(cluster.points.size());
+  return Point3D{sum_x / num_points, sum_y / num_points, sum_z / num_points};
+}
+
+bool Clustering::are_centroids_close(const Point3D &a, const Point3D &b) const
+{
+  double dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+  double tol = 1e-6;
+  return (dx * dx + dy * dy + dz * dz) < (tol * tol);
+}
+
+bool Clustering::is_ball_size(double size_x, double size_y, double size_z) const
+{
+  double max_diameter = 2 * params_.ball_radius;
+  return (size_x <= max_diameter &&
+          size_y <= max_diameter &&
+          size_z <= max_diameter);
 }

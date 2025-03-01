@@ -47,21 +47,23 @@ namespace ball_detector
 
   Point3D BallDetectorCore::calculate_ball_position(const std::vector<ClusterInfo> &clusters)
   {
-    const auto &dynamic_ball_indices = clustering_->get_dynamic_ball_cluster_indices();
     std::vector<Point3D> candidate_points;
 
-    // 動的かつボール以下のサイズのクラスタから全ての点を収集
-    for (const auto &index : dynamic_ball_indices)
+    // 動的ボールクラスタとしてフラグが立っているクラスタから点を収集
+    for (const auto &cluster_info : clusters)
     {
-      // ClusterInfo の中の cluster が VoxelCluster となっているので、点集合は cluster.points としてアクセス
-      const ClusterInfo &cluster = clusters[index];
-      candidate_points.insert(candidate_points.end(), cluster.cluster.points.begin(), cluster.cluster.points.end());
+      if (cluster_info.is_dynamic_ball)
+      {
+        candidate_points.insert(candidate_points.end(),
+                                cluster_info.cluster.points.begin(),
+                                cluster_info.cluster.points.end());
+      }
     }
 
     if (candidate_points.size() < 2)
     {
-      // RCLCPP_WARN(this->get_logger(), "候補点が2点未満のため、ボールを検出できません。");
-      return Point3D{0.0, 0.0, 0.0}; // 無効な位置を示す
+      // 候補点が2点未満の場合は無効な位置を返す
+      return Point3D{0.0f, 0.0f, 0.0f};
     }
 
     // x座標でソート
@@ -69,11 +71,14 @@ namespace ball_detector
               [](const Point3D &a, const Point3D &b)
               { return a.x < b.x; });
 
-    // 最小のxを持つ2点を選択し平均値を計算
     const Point3D &point1 = candidate_points[0];
     const Point3D &point2 = candidate_points[1];
 
-    return Point3D{(point1.x + point2.x) / 2.0, (point1.y + point2.y) / 2.0, (point1.z + point2.z) / 2.0};
+    // 平均値計算時に明示的に float へのキャストを実施
+    return Point3D{
+        static_cast<float>((point1.x + point2.x) / 2.0),
+        static_cast<float>((point1.y + point2.y) / 2.0),
+        static_cast<float>((point1.z + point2.z) / 2.0)};
   }
 
 }

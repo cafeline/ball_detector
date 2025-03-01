@@ -5,7 +5,6 @@
 #include "ball_detector/cluster_tracking.hpp"
 #include <vector>
 #include <string>
-#include <unordered_set>
 #include <rclcpp/rclcpp.hpp>
 #include "visualization_msgs/msg/marker_array.hpp"
 
@@ -22,15 +21,16 @@ public:
   std::vector<ClusterInfo> create_voxel_clustering(const std::vector<Point3D> &points,
                                                    const std::vector<Voxel> &voxels);
   void collect_cluster_points(VoxelCluster &cluster, const std::vector<Point3D> &points);
+
+  // 各クラスタ内部の点群からサイズ計算を行う（引数から points は不要）
   void calculate_cluster_size(const VoxelCluster &cluster,
-                              const std::vector<Point3D> &points,
                               double &size_x,
                               double &size_y,
                               double &size_z) const;
 
   // クラスタ処理
   void process_clusters(const std::vector<Point3D> &processed_points,
-                        const std::vector<ClusterInfo> &clusters,
+                        std::vector<ClusterInfo> &clusters,
                         rclcpp::Time current_time,
                         double dt);
   void refine_ball_clusters(std::vector<ClusterInfo> &clusters, const Point3D &ball_position);
@@ -40,27 +40,10 @@ public:
                                                      const rclcpp::Time &current_time,
                                                      double dt);
 
-  // クラスタインデックス計算
-  void calc_ball_clusters_indices(const std::vector<ClusterInfo> &clusters,
-                                  const std::vector<Point3D> &points);
-  void calc_dynamic_cluster_indices(const std::vector<ClusterInfo> &clusters,
-                                    const std::vector<ClusterInfo> &dynamic_clusters);
-  void calc_dynamic_ball_cluster_indices(const std::vector<ClusterInfo> &clusters);
-  void filter_dynamic_ball_clusters_near_boundaries(const std::vector<ClusterInfo> &clusters);
-
-  // クラスタ抽出
-  std::vector<ClusterInfo> extract_ball_clusters(const std::vector<ClusterInfo> &clusters);
-  std::vector<ClusterInfo> extract_dynamic_ball_clusters(const std::vector<ClusterInfo> &clusters);
-  std::vector<ClusterInfo> extract_clusters_by_indices(const std::vector<ClusterInfo> &clusters,
-                                                       const std::unordered_set<size_t> &indices);
-
-  // ゲッターメソッド
-  const std::unordered_set<size_t> &get_ball_size_cluster_indices() const { return ball_size_cluster_indices_; }
-  const std::unordered_set<size_t> &get_dynamic_cluster_indices() const { return dynamic_cluster_indices_; }
-  const std::unordered_set<size_t> &get_dynamic_ball_cluster_indices() const { return dynamic_ball_cluster_indices_; }
-
-  // クラスタを取得するメソッド（ClusterInfoのvectorとして管理）
-  const std::vector<ClusterInfo> &get_clusters() const { return current_clusters_; }
+  // 各クラスタにボール／動的クラスタのフラグをセットする関数（points 引数は不要）
+  void mark_ball_clusters(std::vector<ClusterInfo> &clusters);
+  void mark_dynamic_clusters(std::vector<ClusterInfo> &clusters, const std::vector<ClusterInfo> &dynamic_clusters);
+  void filter_dynamic_ball_clusters_near_boundaries(std::vector<ClusterInfo> &clusters);
 
   // ボクセル操作ユーティリティ
   bool point_in_voxel(const Point3D &point, const Voxel &voxel) const;
@@ -68,16 +51,6 @@ public:
 private:
   Parameters params_;
   ClusterTracking cluster_tracking_;
-
-  // クラスタインデックスセット（各クラスタに付与したIDを利用）
-  std::unordered_set<size_t> ball_size_cluster_indices_;
-  std::unordered_set<size_t> dynamic_cluster_indices_;
-  std::unordered_set<size_t> dynamic_ball_cluster_indices_;
-
-  // セット操作ユーティリティ
-  std::unordered_set<size_t> set_intersection(
-      const std::unordered_set<size_t> &set1,
-      const std::unordered_set<size_t> &set2);
 
   // 位置・距離計算
   bool is_near_boundary(const Point3D &centroid) const;
@@ -100,9 +73,6 @@ private:
 
   // ボクセル隣接性
   std::vector<std::string> get_adjacent_voxels(const std::string &key) const;
-
-  // 現在のクラスタを ClusterInfo として保持
-  std::vector<ClusterInfo> current_clusters_;
 };
 
 #endif // CLUSTERING_HPP
