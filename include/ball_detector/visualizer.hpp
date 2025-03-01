@@ -4,7 +4,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
-#include "ball_detector/clustering.hpp" // Clustering.hpp をインクルード (VoxelCluster 等を使用するため)
+#include "ball_detector/clustering.hpp"
 #include <deque>
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "ball_detector/types.hpp"
@@ -26,7 +26,6 @@ namespace ball_detector
 
     std::deque<Point3D> ball_trajectory_points_;
     std::deque<Point3D> past_points_;
-    std::unique_ptr<Clustering> clustering_;
 
   private:
     Parameters params_;

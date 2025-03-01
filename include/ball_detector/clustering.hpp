@@ -49,26 +49,15 @@ public:
   void refine_ball_clusters(std::vector<ClusterInfo> &clusters,
                             const Point3D &ball_position);
   ClusterCreator cluster_creator_;
+  std::unique_ptr<TrackingManager> tracking_manager_;
 
 private:
   Parameters params_;
   ClusterClassifier cluster_classifier_;
-  std::unique_ptr<TrackingManager> tracking_manager_;
 };
 
 // ユーティリティ関数
 std::string voxel_to_key(int x, int y, int z);
 std::string point_to_voxel_key(const Point3D &point, const Parameters &params);
-
-class Clustering
-{
-public:
-  explicit Clustering(const Parameters &params);
-  std::unique_ptr<TrackingManager> tracking_manager_;
-  ClusterManager cluster_manager_;
-
-private:
-  Parameters params_;
-};
 
 #endif // BALL_DETECTOR_CLUSTERING_HPP

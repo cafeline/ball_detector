@@ -32,9 +32,10 @@ namespace ball_detector
     // 新規追加: ClusterInfoのvectorからVoxelClusterを抽出し、Visualizerの対応する関数を呼び出す
     visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<ClusterInfo> &clusters);
 
-    std::unique_ptr<Clustering> clustering_;
+    std::unique_ptr<ClusterManager> cluster_manager_;
     std::unique_ptr<Visualizer> visualizer_;
     std::unique_ptr<PointCloudProcessor> pointcloud_processor;
+
   private:
     Parameters params_;
   };

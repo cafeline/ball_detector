@@ -307,13 +307,6 @@ void ClusterManager::refine_ball_clusters(std::vector<ClusterInfo> &clusters,
   tracking_manager_->refine_ball_clusters(clusters, ball_position, params_);
 }
 
-// Clustering（ラッパークラス）実装
-Clustering::Clustering(const Parameters &params)
-    : params_(params), cluster_manager_(params)
-{
-  tracking_manager_ = std::make_unique<TrackingManager>();
-}
-
 // 再利用可能なユーティリティ関数
 std::string voxel_to_key(int x, int y, int z)
 {
