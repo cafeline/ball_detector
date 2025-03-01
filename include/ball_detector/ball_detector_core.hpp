@@ -9,7 +9,8 @@
 #include "ball_detector/clustering_types.hpp"
 #include "ball_detector/parameters.hpp"
 #include "ball_detector/pointcloud_processor.hpp"
-#include "ball_detector/clustering.hpp"
+#include "ball_detector/cluster_creator.hpp"
+#include "ball_detector/cluster_classifier.hpp"
 #include "ball_detector/visualizer.hpp"
 #include "ball_detector/tracking_manager.hpp"
 
