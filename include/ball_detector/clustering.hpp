@@ -5,7 +5,7 @@
 #include <string>
 #include <rclcpp/rclcpp.hpp>
 #include "ball_detector/types.hpp"
-#include "ball_detector/tracking.hpp"
+#include "ball_detector/tracking_manager.hpp"
 
 class ClusterCreator
 {

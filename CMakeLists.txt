@@ -17,7 +17,9 @@ ament_auto_add_library(ball_detector
   src/pointcloud_processor.cpp
   src/clustering.cpp
   src/visualizer.cpp
-  src/tracking.cpp
+  src/tracking_manager.cpp
+  src/tracking_engine.cpp
+  src/tracking_utils.cpp
 )
 
 ament_export_include_directories(include)
