@@ -25,7 +25,7 @@ namespace ball_detector
         g = 0.0f;
         b = 0.0f; // ボールクラスターは赤
         break;
-      case ClusterType::STATIC:
+      case ClusterType::LARGE:
       case ClusterType::UNKNOWN:
       default:
         r = 0.0f;

@@ -58,7 +58,7 @@ struct VoxelCluster
 enum class ClusterType
 {
   UNKNOWN,        // 不明なクラスタ
-  STATIC,         // 静的な一般クラスタ
+  LARGE,          // ボールより大きい
   BALL_CANDIDATE, // ボール候補クラスタ
   DYNAMIC_BALL    // 動的ボールクラスタ
 };

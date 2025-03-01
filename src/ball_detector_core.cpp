@@ -74,7 +74,6 @@ namespace ball_detector
     const Point3D &point1 = candidate_points[0];
     const Point3D &point2 = candidate_points[1];
 
-    // 平均値計算時に明示的に float へのキャストを実施
     return Point3D{
         static_cast<float>((point1.x + point2.x) / 2.0),
         static_cast<float>((point1.y + point2.y) / 2.0),
