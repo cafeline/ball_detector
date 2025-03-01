@@ -29,7 +29,6 @@ std::vector<ClusterInfo> Clustering::create_voxel_clustering(const std::vector<P
   std::unordered_map<std::string, bool> visited;
   std::queue<std::string> q;
 
-  // クラスタリング処理（各クラスタはVoxelClusterとして作成）
   for (const auto &pair : occupied_voxels)
   {
     const std::string &key = pair.first;
@@ -147,7 +146,14 @@ void Clustering::identify_ball_candidates(std::vector<ClusterInfo> &clusters)
   {
     double size_x, size_y, size_z;
     calculate_cluster_size(ci.cluster, size_x, size_y, size_z);
-    ci.is_ball_cluster = is_ball_size(size_x, size_y, size_z);
+    if (is_ball_size(size_x, size_y, size_z))
+    {
+      ci.type = ClusterType::BALL_CANDIDATE;
+    }
+    else
+    {
+      ci.type = ClusterType::STATIC;
+    }
   }
 }
 
@@ -184,20 +190,14 @@ void Clustering::identify_dynamic_clusters(std::vector<ClusterInfo> &clusters,
 void Clustering::mark_dynamic_clusters(std::vector<ClusterInfo> &clusters,
                                        const std::vector<VoxelCluster> &dynamic_clusters)
 {
-  // すべてのクラスタの動的フラグを初期化
-  for (auto &ci : clusters)
-  {
-    ci.is_dynamic_ball = false;
-  }
-
-  // 動的クラスタを見つけてマーク
+  // すべてのクラスタの動的フラグを初期化（既存のtypeを保持）
   for (const auto &dyn_cluster : dynamic_clusters)
   {
     for (auto &ci : clusters)
     {
-      if (clusters_match(ci.cluster, dyn_cluster) && ci.is_ball_cluster)
+      if (clusters_match(ci.cluster, dyn_cluster) && ci.type == ClusterType::BALL_CANDIDATE)
       {
-        ci.is_dynamic_ball = true;
+        ci.type = ClusterType::DYNAMIC_BALL;
         break;
       }
     }
@@ -226,13 +226,13 @@ void Clustering::filter_clusters_near_boundaries(std::vector<ClusterInfo> &clust
 {
   for (auto &ci : clusters)
   {
-    if (ci.is_dynamic_ball)
+    if (ci.type == ClusterType::DYNAMIC_BALL)
     {
       Point3D centroid = calculate_cluster_centroid(ci.cluster);
       if (is_near_boundary(centroid))
       {
-        ci.is_dynamic_ball = false;
-        ci.is_ball_cluster = false;
+        // 境界付近のクラスタはボール候補から静的クラスタに戻す
+        ci.type = ClusterType::STATIC;
       }
     }
   }
@@ -270,7 +270,7 @@ size_t Clustering::find_closest_ball_cluster(const std::vector<ClusterInfo> &clu
 
   for (const auto &ci : clusters)
   {
-    if (ci.is_dynamic_ball)
+    if (ci.type == ClusterType::DYNAMIC_BALL)
     {
       Point3D centroid = calculate_cluster_centroid(ci.cluster);
       double dist = calculate_distance(centroid, ball_position);
@@ -301,9 +301,8 @@ void Clustering::update_ball_cluster(std::vector<ClusterInfo> &clusters,
     clusters[best_idx].cluster.points.clear();
     clusters[best_idx].cluster.points.push_back(ball_position);
 
-    // フラグを明示的に true に設定する
-    clusters[best_idx].is_ball_cluster = true;
-    clusters[best_idx].is_dynamic_ball = true;
+    // タイプを明示的に設定
+    clusters[best_idx].type = ClusterType::DYNAMIC_BALL;
   }
 }
 

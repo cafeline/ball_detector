@@ -49,10 +49,10 @@ namespace ball_detector
   {
     std::vector<Point3D> candidate_points;
 
-    // 動的ボールクラスタとしてフラグが立っているクラスタから点を収集
+    // 動的ボールクラスタから点を収集
     for (const auto &cluster_info : clusters)
     {
-      if (cluster_info.is_dynamic_ball)
+      if (cluster_info.type == ClusterType::DYNAMIC_BALL)
       {
         candidate_points.insert(candidate_points.end(),
                                 cluster_info.cluster.points.begin(),

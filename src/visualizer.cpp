@@ -8,32 +8,30 @@ namespace ball_detector
   {
     visualization_msgs::msg::MarkerArray marker_array;
 
-    // 各 ClusterInfo を直接処理：Clustering から索引集合を取得せず、ClusterInfo の要素から情報を得る
     for (const auto &cluster_info : cluster_infos)
     {
-      // ClusterInfo の index メンバーを利用
       size_t cluster_id = cluster_info.index;
-      // ClusterInfo 内にフラグを持たせ、そこから各種判定を行う
-      bool is_ball_cluster = cluster_info.is_ball_cluster;
-      bool is_dynamic_ball = cluster_info.is_dynamic_ball;
+
       float r, g, b;
-      if (is_dynamic_ball)
+      switch (cluster_info.type)
       {
+      case ClusterType::DYNAMIC_BALL:
         r = 0.0f;
         g = 1.0f;
         b = 0.0f; // 動的ボールクラスターは緑
-      }
-      else if (is_ball_cluster)
-      {
+        break;
+      case ClusterType::BALL_CANDIDATE:
         r = 1.0f;
         g = 0.0f;
         b = 0.0f; // ボールクラスターは赤
-      }
-      else
-      {
+        break;
+      case ClusterType::STATIC:
+      case ClusterType::UNKNOWN:
+      default:
         r = 0.0f;
         g = 0.0f;
         b = 1.0f; // その他は青
+        break;
       }
 
       // ClusterInfo 内の VoxelCluster を利用してマーカーを生成
@@ -42,10 +40,8 @@ namespace ball_detector
       {
         const auto &voxel = cluster.voxels[v];
         visualization_msgs::msg::Marker marker;
-        // ヘッダーは "map" としていますが、必要に応じて修正してください
         marker.header.frame_id = "map";
         marker.ns = "voxel_cluster_markers";
-        // 一意のIDとして、cluster_id と voxel のインデックスを組み合わせる
         marker.id = static_cast<int>(cluster_id * 10000 + v);
         marker.type = visualization_msgs::msg::Marker::CUBE;
         marker.action = visualization_msgs::msg::Marker::ADD;
@@ -121,7 +117,6 @@ namespace ball_detector
 
     visualization_msgs::msg::Marker trajectory_marker = create_trajectory_marker(ball_trajectory_points_, remaining_cloud.header);
     visualization_msgs::msg::Marker past_points_marker = create_past_points_marker(past_points_, remaining_cloud.header);
-    // 必要に応じて、各 Marker をパブリッシャーで発行してください
   }
 
   visualization_msgs::msg::Marker Visualizer::create_trajectory_marker(const std::deque<Point3D> &trajectory, const std_msgs::msg::Header &header)

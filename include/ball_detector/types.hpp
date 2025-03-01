@@ -49,17 +49,18 @@ struct Voxel
 // ボクセルクラスタ構造体
 struct VoxelCluster
 {
-  std::vector<Voxel> voxels;          // クラスタ内のボクセル
-  int total_point_count;              // クラスタ内の総点群数
-  std::vector<Point3D> points;        // クラスタ内の全点群データ
+  std::vector<Voxel> voxels;   // クラスタ内のボクセル
+  int total_point_count;       // クラスタ内の総点群数
+  std::vector<Point3D> points; // クラスタ内の全点群データ
 };
 
+// クラスタの種類を表す列挙型
 enum class ClusterType
 {
-  UNKNOWN,
-  STATIC,
-  BALL_CANDIDATE,
-  DYNAMIC_BALL
+  UNKNOWN,        // 不明なクラスタ
+  STATIC,         // 静的な一般クラスタ
+  BALL_CANDIDATE, // ボール候補クラスタ
+  DYNAMIC_BALL    // 動的ボールクラスタ
 };
 
 // クラスタの情報（クラスタ本体とその一意なインデックス）を保持する構造体
@@ -67,8 +68,6 @@ struct ClusterInfo
 {
   size_t index;
   VoxelCluster cluster;
-  bool is_ball_cluster = false;
-  bool is_dynamic_ball = false;
   ClusterType type = ClusterType::UNKNOWN;
 };
 
