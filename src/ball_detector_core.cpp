@@ -22,19 +22,17 @@ namespace ball_detector
 
   DetectionResult BallDetectorCore::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)
   {
-    std::vector<Voxel> voxels = clustering_->cluster_manager_.cluster_creator_.create_voxel(processed_points);
-
     // クラスタリング
-    std::vector<ClusterInfo> clusters = clustering_->create_voxel_clustering(processed_points, voxels);
+    std::vector<ClusterInfo> clusters = clustering_->cluster_manager_.cluster_creator_.create_voxel_clustering(processed_points);
 
     // クラスタの処理
-    clustering_->process_clusters(processed_points, clusters, current_time, dt);
+    clustering_->cluster_manager_.process_clusters(processed_points, clusters, current_time, dt);
 
     // ボール位置の計算
     Point3D ball_position = calculate_ball_position(clusters);
 
     // ボールクラスタの精緻化
-    clustering_->tracking_manager_->refine_ball_clusters(clusters, ball_position, params_);
+    clustering_->cluster_manager_.tracking_manager_->refine_ball_clusters(clusters, ball_position, params_);
 
     return DetectionResult{ball_position, clusters};
   }

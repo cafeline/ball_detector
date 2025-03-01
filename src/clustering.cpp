@@ -16,10 +16,11 @@ ClusterCreator::ClusterCreator(const Parameters &params)
 {
 }
 
-std::vector<ClusterInfo> ClusterCreator::create_voxel_clustering(const std::vector<Point3D> &points,
-                                                                 const std::vector<Voxel> &voxels)
+std::vector<ClusterInfo> ClusterCreator::create_voxel_clustering(const std::vector<Point3D> &points)
 {
-  std::unordered_map<std::string, Voxel> occupied_voxels;
+  std::vector<Voxel> voxels = create_voxel(points);
+  std::unordered_map<std::string, Voxel>
+      occupied_voxels;
   for (const auto &voxel : voxels)
   {
     std::string key = voxel_to_key(voxel.x, voxel.y, voxel.z);
@@ -228,7 +229,7 @@ void ClusterClassifier::filter_clusters_near_boundaries(std::vector<ClusterInfo>
       Point3D centroid = calculate_cluster_centroid(ci.cluster);
       if (is_near_boundary(centroid))
       {
-        // 境界付近のクラスタはボール候補から静的クラスタに戻す
+        // 境界付近のクラスタはボール候補から大きいクラスタに戻す
         ci.type = ClusterType::LARGE;
       }
     }
@@ -285,12 +286,6 @@ ClusterManager::ClusterManager(const Parameters &params)
   tracking_manager_ = std::make_unique<TrackingManager>();
 }
 
-std::vector<ClusterInfo> ClusterManager::create_voxel_clustering(const std::vector<Point3D> &points,
-                                                                 const std::vector<Voxel> &voxels)
-{
-  return cluster_creator_.create_voxel_clustering(points, voxels);
-}
-
 void ClusterManager::process_clusters(const std::vector<Point3D> &processed_points,
                                       std::vector<ClusterInfo> &clusters,
                                       rclcpp::Time current_time,
@@ -317,20 +312,6 @@ Clustering::Clustering(const Parameters &params)
     : params_(params), cluster_manager_(params)
 {
   tracking_manager_ = std::make_unique<TrackingManager>();
-}
-
-std::vector<ClusterInfo> Clustering::create_voxel_clustering(const std::vector<Point3D> &points,
-                                                             const std::vector<Voxel> &voxels)
-{
-  return cluster_manager_.create_voxel_clustering(points, voxels);
-}
-
-void Clustering::process_clusters(const std::vector<Point3D> &processed_points,
-                                  std::vector<ClusterInfo> &clusters,
-                                  rclcpp::Time current_time,
-                                  double dt)
-{
-  cluster_manager_.process_clusters(processed_points, clusters, current_time, dt);
 }
 
 // 再利用可能なユーティリティ関数

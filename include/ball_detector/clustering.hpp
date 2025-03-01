@@ -11,8 +11,7 @@ class ClusterCreator
 {
 public:
   explicit ClusterCreator(const Parameters &params);
-  std::vector<ClusterInfo> create_voxel_clustering(const std::vector<Point3D> &points,
-                                                   const std::vector<Voxel> &voxels);
+  std::vector<ClusterInfo> create_voxel_clustering(const std::vector<Point3D> &points);
   std::vector<Voxel> create_voxel(const std::vector<Point3D> &points);
 
 private:
@@ -43,8 +42,6 @@ class ClusterManager
 {
 public:
   explicit ClusterManager(const Parameters &params);
-  std::vector<ClusterInfo> create_voxel_clustering(const std::vector<Point3D> &points,
-                                                   const std::vector<Voxel> &voxels);
   void process_clusters(const std::vector<Point3D> &processed_points,
                         std::vector<ClusterInfo> &clusters,
                         rclcpp::Time current_time,
@@ -67,15 +64,6 @@ class Clustering
 {
 public:
   explicit Clustering(const Parameters &params);
-
-  std::vector<ClusterInfo> create_voxel_clustering(const std::vector<Point3D> &points,
-                                                   const std::vector<Voxel> &voxels);
-
-  void process_clusters(const std::vector<Point3D> &processed_points,
-                        std::vector<ClusterInfo> &clusters,
-                        rclcpp::Time current_time,
-                        double dt);
-
   std::unique_ptr<TrackingManager> tracking_manager_;
   ClusterManager cluster_manager_;
 
