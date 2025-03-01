@@ -8,31 +8,43 @@ namespace ball_detector
 {
   BallDetectorCore::BallDetectorCore()
   {
-    cluster_manager_ = std::make_unique<ClusterManager>(params_);
+    // ClusterManagerの代わりに個別にCreatorとClassifierを初期化
+    cluster_creator_ = std::make_unique<ClusterCreator>(params_);
+    cluster_classifier_ = std::make_unique<ClusterClassifier>(params_);
+    tracking_manager_ = std::make_unique<TrackingManager>();
     visualizer_ = std::make_unique<Visualizer>(params_);
   }
 
   void BallDetectorCore::set_params(const Parameters &params)
   {
     params_ = params;
-    cluster_manager_ = std::make_unique<ClusterManager>(params_);
+    // ClusterManagerの代わりに個別にCreatorとClassifierを初期化
+    cluster_creator_ = std::make_unique<ClusterCreator>(params_);
+    cluster_classifier_ = std::make_unique<ClusterClassifier>(params_);
+    tracking_manager_ = std::make_unique<TrackingManager>();
     visualizer_ = std::make_unique<Visualizer>(params_);
     pointcloud_processor = std::make_unique<PointCloudProcessor>(params_);
   }
 
   DetectionResult BallDetectorCore::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)
   {
-    // クラスタリング
-    std::vector<ClusterInfo> clusters = cluster_manager_->cluster_creator_.create_voxel_clustering(processed_points);
+    // クラスタリング（ClusterCreatorを直接使用）
+    std::vector<ClusterInfo> clusters = cluster_creator_->create_voxel_clustering(processed_points);
 
-    // クラスタの処理
-    cluster_manager_->process_clusters(processed_points, clusters, current_time, dt);
+    // クラスタの処理（クラス分類）（ClusterClassifierを直接使用）
+    cluster_classifier_->identify_ball_candidates(clusters);
+
+    // 動的クラスタの識別（トラッキング処理）
+    tracking_manager_->identify_dynamic_clusters(clusters, current_time, dt, params_);
+
+    // 境界付近のクラスタをフィルタリング（ClusterClassifierを直接使用）
+    cluster_classifier_->filter_clusters_near_boundaries(clusters);
 
     // ボール位置の計算
     Point3D ball_position = calculate_ball_position(clusters);
 
     // ボールクラスタの精緻化
-    cluster_manager_->tracking_manager_->refine_ball_clusters(clusters, ball_position, params_);
+    tracking_manager_->refine_ball_clusters(clusters, ball_position, params_);
 
     return DetectionResult{ball_position, clusters};
   }

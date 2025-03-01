@@ -5,7 +5,6 @@
 #include <string>
 #include <rclcpp/rclcpp.hpp>
 #include "ball_detector/types.hpp"
-#include "ball_detector/tracking_manager.hpp"
 
 class ClusterCreator
 {
@@ -36,24 +35,6 @@ private:
   bool is_near_boundary(const Point3D &centroid) const;
   bool are_centroids_close(const Point3D &a, const Point3D &b) const;
   Parameters params_;
-};
-
-class ClusterManager
-{
-public:
-  explicit ClusterManager(const Parameters &params);
-  void process_clusters(const std::vector<Point3D> &processed_points,
-                        std::vector<ClusterInfo> &clusters,
-                        rclcpp::Time current_time,
-                        double dt);
-  void refine_ball_clusters(std::vector<ClusterInfo> &clusters,
-                            const Point3D &ball_position);
-  ClusterCreator cluster_creator_;
-  std::unique_ptr<TrackingManager> tracking_manager_;
-
-private:
-  Parameters params_;
-  ClusterClassifier cluster_classifier_;
 };
 
 // ユーティリティ関数

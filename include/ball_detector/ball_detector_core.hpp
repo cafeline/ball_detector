@@ -8,6 +8,7 @@
 #include "ball_detector/pointcloud_processor.hpp"
 #include "ball_detector/clustering.hpp"
 #include "ball_detector/visualizer.hpp"
+#include "ball_detector/tracking_manager.hpp"
 
 namespace ball_detector
 {
@@ -32,7 +33,9 @@ namespace ball_detector
     // 新規追加: ClusterInfoのvectorからVoxelClusterを抽出し、Visualizerの対応する関数を呼び出す
     visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<ClusterInfo> &clusters);
 
-    std::unique_ptr<ClusterManager> cluster_manager_;
+    std::unique_ptr<ClusterCreator> cluster_creator_;
+    std::unique_ptr<ClusterClassifier> cluster_classifier_;
+    std::unique_ptr<TrackingManager> tracking_manager_;
     std::unique_ptr<Visualizer> visualizer_;
     std::unique_ptr<PointCloudProcessor> pointcloud_processor;
 

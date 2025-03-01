@@ -277,36 +277,6 @@ bool ClusterClassifier::are_centroids_close(const Point3D &a, const Point3D &b) 
   return (dx * dx + dy * dy + dz * dz) < (tol * tol);
 }
 
-// ClusterManager実装
-ClusterManager::ClusterManager(const Parameters &params)
-    : params_(params),
-      cluster_creator_(params),
-      cluster_classifier_(params)
-{
-  tracking_manager_ = std::make_unique<TrackingManager>();
-}
-
-void ClusterManager::process_clusters(const std::vector<Point3D> &processed_points,
-                                      std::vector<ClusterInfo> &clusters,
-                                      rclcpp::Time current_time,
-                                      double dt)
-{
-  // ボールサイズの識別
-  cluster_classifier_.identify_ball_candidates(clusters);
-
-  // 動的クラスタの識別
-  tracking_manager_->identify_dynamic_clusters(clusters, current_time, dt, params_);
-
-  // 境界付近のクラスタをフィルタリング
-  cluster_classifier_.filter_clusters_near_boundaries(clusters);
-}
-
-void ClusterManager::refine_ball_clusters(std::vector<ClusterInfo> &clusters,
-                                          const Point3D &ball_position)
-{
-  tracking_manager_->refine_ball_clusters(clusters, ball_position, params_);
-}
-
 // 再利用可能なユーティリティ関数
 std::string voxel_to_key(int x, int y, int z)
 {
