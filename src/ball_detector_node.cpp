@@ -30,7 +30,6 @@ namespace ball_detector
     params_.max_distance_for_association = this->get_parameter("max_distance_for_association").as_double();
 
     ball_detector_core_->set_params(params_);
-    pointcloud_processor = std::make_unique<PointCloudProcessor>(params_);
   }
 
   void BallDetectorNode::setup_publishers_and_subscribers()
@@ -62,13 +61,13 @@ namespace ball_detector
     previous_time_ = current_time;
 
     // ポイントクラウドの処理
-    std::vector<Point3D> processed_points = pointcloud_processor->process(msg, self_pose_.x, self_pose_.y, self_pose_.z);
+    std::vector<Point3D> processed_points = ball_detector_core_->pointcloud_processor->process(msg, self_pose_.x, self_pose_.y, self_pose_.z);
 
     // ボール検出
     DetectionResult result = ball_detector_core_->detect_ball(processed_points, current_time, dt);
 
     // 視覚化
-    publish_visualization(result, msg->header);
+    publish_visualization(result, processed_points, msg->header);
 
     // 実行時間のログ出力など必要に応じて
     // RCLCPP_INFO(this->get_logger(), "exec time: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
@@ -95,13 +94,12 @@ namespace ball_detector
     is_autonomous = msg->data;
   }
 
-  void BallDetectorNode::publish_visualization(const DetectionResult &result, const std_msgs::msg::Header &header)
+  void BallDetectorNode::publish_visualization(const DetectionResult &result, const std::vector<Point3D> processed_points, const std_msgs::msg::Header &header)
   {
-    // BallDetectorCore側で実装した処理を呼び出すだけにする
     visualization_msgs::msg::MarkerArray voxel_marker_array = ball_detector_core_->visualizer_->create_voxel_cluster_markers(result.clusters);
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
-    sensor_msgs::msg::PointCloud2 remaining_cloud = pointcloud_processor->vector_to_PC2(result.processed_points);
+    sensor_msgs::msg::PointCloud2 remaining_cloud = ball_detector_core_->pointcloud_processor->vector_to_PC2(processed_points);
     filtered_cloud_publisher_->publish(remaining_cloud);
 
     if (result.ball_position.x == 0.0 && result.ball_position.y == 0.0 && result.ball_position.z == 0.0)
@@ -112,12 +110,10 @@ namespace ball_detector
     ball_publisher_->publish(marker);
 
     ball_detector_core_->visualizer_->update_trajectory(result.ball_position, remaining_cloud);
-    visualization_msgs::msg::Marker trajectory_marker =
-        ball_detector_core_->visualizer_->create_trajectory_marker(ball_detector_core_->visualizer_->ball_trajectory_points_, header);
+    visualization_msgs::msg::Marker trajectory_marker = ball_detector_core_->visualizer_->create_trajectory_marker(ball_detector_core_->visualizer_->ball_trajectory_points_, header);
     trajectory_publisher_->publish(trajectory_marker);
 
-    visualization_msgs::msg::Marker past_points_marker =
-        ball_detector_core_->visualizer_->create_past_points_marker(ball_detector_core_->visualizer_->past_points_, header);
+    visualization_msgs::msg::Marker past_points_marker = ball_detector_core_->visualizer_->create_past_points_marker(ball_detector_core_->visualizer_->past_points_, header);
     past_points_publisher_->publish(past_points_marker);
   }
 

@@ -16,7 +16,6 @@ namespace ball_detector
   {
     Point3D ball_position;
     std::vector<ClusterInfo> clusters;
-    std::vector<Point3D> processed_points;
   };
 
   class BallDetectorCore
@@ -35,7 +34,7 @@ namespace ball_detector
 
     std::unique_ptr<Clustering> clustering_;
     std::unique_ptr<Visualizer> visualizer_;
-
+    std::unique_ptr<PointCloudProcessor> pointcloud_processor;
   private:
     Parameters params_;
   };

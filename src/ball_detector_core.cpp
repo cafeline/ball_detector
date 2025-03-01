@@ -12,12 +12,12 @@ namespace ball_detector
     visualizer_ = std::make_unique<Visualizer>(params_);
   }
 
-  // パラメータを後から設定するためのセッター
   void BallDetectorCore::set_params(const Parameters &params)
   {
     params_ = params;
     clustering_ = std::make_unique<Clustering>(params_);
     visualizer_ = std::make_unique<Visualizer>(params_);
+    pointcloud_processor = std::make_unique<PointCloudProcessor>(params_);
   }
 
   DetectionResult BallDetectorCore::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)
@@ -36,8 +36,7 @@ namespace ball_detector
     // ボールクラスタの精緻化
     clustering_->tracking_manager_->refine_ball_clusters(clusters, ball_position, params_);
 
-    // 検出結果とビジュアライゼーションデータを返す
-    return DetectionResult{ball_position, clusters, processed_points};
+    return DetectionResult{ball_position, clusters};
   }
 
   Point3D BallDetectorCore::calculate_ball_position(const std::vector<ClusterInfo> &clusters)
