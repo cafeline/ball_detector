@@ -17,7 +17,8 @@ namespace ball_detector
     void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
     void autonomous_callback(const std_msgs::msg::Bool::SharedPtr msg);
-    void publish_visualization(const DetectionResult &result, const std::vector<Point3D> processed_points, const std_msgs::msg::Header &header);
+    void publish_visualization_data(const DetectionResult &result, const std::vector<Point3D> &processed_points);
+    bool is_valid_ball_position(const Point3D &position) const;
 
     std::unique_ptr<BallDetectorCore> ball_detector_core_;
 

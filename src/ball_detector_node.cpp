@@ -66,25 +66,40 @@ namespace ball_detector
     // ボール検出
     DetectionResult result = ball_detector_core_->detect_ball(processed_points, current_time, dt);
 
+    // 視覚化用データの取得と公開
+    publish_visualization_data(result, processed_points);
+
+    // RCLCPP_INFO(this->get_logger(), "exec time: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
+  }
+
+  void BallDetectorNode::publish_visualization_data(const DetectionResult &result, const std::vector<Point3D> &processed_points)
+  {
     // 視覚化用データの取得
     VisualizationData viz_data = ball_detector_core_->prepare_visualization(result, processed_points);
 
-    // ノード側でpublish操作を実行
+    // フィルタリングされたポイントクラウドは常に公開
+    filtered_cloud_publisher_->publish(viz_data.filtered_cloud);
+
+    // クラスター化されたボクセルがあれば公開
     if (!viz_data.voxel_markers.markers.empty())
     {
       clustered_voxel_publisher_->publish(viz_data.voxel_markers);
     }
 
-    filtered_cloud_publisher_->publish(viz_data.filtered_cloud);
-
-    if (!(result.ball_position.x == 0.0 && result.ball_position.y == 0.0 && result.ball_position.z == 0.0))
+    // ボールが検出された場合、関連するマーカーを公開
+    const bool ball_detected = is_valid_ball_position(result.ball_position);
+    if (ball_detected)
     {
       ball_publisher_->publish(viz_data.ball_marker);
       trajectory_publisher_->publish(viz_data.trajectory_marker);
       past_points_publisher_->publish(viz_data.past_points_marker);
     }
+  }
 
-    // RCLCPP_INFO(this->get_logger(), "exec time: %ld ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
+  bool BallDetectorNode::is_valid_ball_position(const Point3D &position) const
+  {
+    // ゼロ位置（0,0,0）でない場合は有効と判断
+    return !(position.x == 0.0 && position.y == 0.0 && position.z == 0.0);
   }
 
   void BallDetectorNode::pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
