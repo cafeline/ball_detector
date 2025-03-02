@@ -98,24 +98,25 @@ namespace ball_detector
 
   void Visualizer::update_trajectory(const Point3D &centroid, const sensor_msgs::msg::PointCloud2 &remaining_cloud)
   {
+    // ボールが検出されない場合、軌跡をリセット
     if (centroid.x == 0.0 || centroid.y == 0.0 || centroid.z == 0.0)
     {
+      ball_trajectory_points_.clear();
+      past_points_.clear();
       return;
     }
 
-    const size_t MAX_PAST_POINTS = 10;
+    // 設定可能な履歴サイズ（params_から取得するか、動的に調整可能）
+    const size_t trajectory_history_size = 10;
 
-    if (ball_trajectory_points_.size() >= MAX_PAST_POINTS)
+    if (ball_trajectory_points_.size() >= trajectory_history_size)
     {
       ball_trajectory_points_.pop_front();
     }
     ball_trajectory_points_.push_back(centroid);
 
-    if (past_points_.size() >= MAX_PAST_POINTS)
-    {
-      past_points_.pop_front();
-    }
-    past_points_.push_back(centroid);
+    // ball_trajectory_points_と完全に同期させる
+    past_points_ = ball_trajectory_points_;
 
     visualization_msgs::msg::Marker trajectory_marker = create_trajectory_marker(ball_trajectory_points_);
     visualization_msgs::msg::Marker past_points_marker = create_past_points_marker(past_points_);
