@@ -91,8 +91,6 @@ namespace ball_detector
 
     // フィルタリング済みポイントクラウドの準備
     viz_data.filtered_cloud = pointcloud_processor_->vector_to_PC2(processed_points);
-    viz_data.filtered_cloud.header.frame_id = params_.frame_id;
-    viz_data.filtered_cloud.header.stamp = rclcpp::Clock().now();
 
     // ボールマーカーの準備
     viz_data.ball_marker = visualizer_->create_ball_marker(result.ball_position);

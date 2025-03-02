@@ -66,7 +66,7 @@ namespace ball_detector
     // ボール検出
     DetectionResult result = ball_detector_core_->detect_ball(processed_points, current_time, dt);
 
-    // 視覚化用データの取得（headerを渡さない）
+    // 視覚化用データの取得
     VisualizationData viz_data = ball_detector_core_->prepare_visualization(result, processed_points);
 
     // ノード側でpublish操作を実行
