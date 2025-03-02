@@ -28,7 +28,7 @@ std::vector<Point3D> PointCloudProcessor::process(const sensor_msgs::msg::PointC
 sensor_msgs::msg::PointCloud2 PointCloudProcessor::vector_to_PC2(const std::vector<Point3D> &points) const
 {
   sensor_msgs::msg::PointCloud2 cloud_msg;
-  cloud_msg.header.frame_id = "map";
+  cloud_msg.header.frame_id = params_.frame_id;
   cloud_msg.height = 1;
   cloud_msg.width = points.size();
   cloud_msg.fields.resize(3);

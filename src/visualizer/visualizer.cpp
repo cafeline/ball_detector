@@ -40,7 +40,8 @@ namespace ball_detector
       {
         const auto &voxel = cluster.voxels[v];
         visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "map";
+        marker.header.frame_id = params_.frame_id;
+        marker.header.stamp = rclcpp::Clock().now();
         marker.ns = "voxel_cluster_markers";
         marker.id = static_cast<int>(cluster_id * 10000 + v);
         marker.type = visualization_msgs::msg::Marker::CUBE;
@@ -72,10 +73,11 @@ namespace ball_detector
     return marker_array;
   }
 
-  visualization_msgs::msg::Marker Visualizer::create_ball_marker(const Point3D &centroid, const std_msgs::msg::Header &header)
+  visualization_msgs::msg::Marker Visualizer::create_ball_marker(const Point3D &centroid)
   {
     visualization_msgs::msg::Marker marker;
-    marker.header = header;
+    marker.header.frame_id = params_.frame_id;
+    marker.header.stamp = rclcpp::Clock().now();
     marker.id = 0;
     marker.type = visualization_msgs::msg::Marker::SPHERE;
     marker.action = visualization_msgs::msg::Marker::ADD;
@@ -115,14 +117,15 @@ namespace ball_detector
     }
     past_points_.push_back(centroid);
 
-    visualization_msgs::msg::Marker trajectory_marker = create_trajectory_marker(ball_trajectory_points_, remaining_cloud.header);
-    visualization_msgs::msg::Marker past_points_marker = create_past_points_marker(past_points_, remaining_cloud.header);
+    visualization_msgs::msg::Marker trajectory_marker = create_trajectory_marker(ball_trajectory_points_);
+    visualization_msgs::msg::Marker past_points_marker = create_past_points_marker(past_points_);
   }
 
-  visualization_msgs::msg::Marker Visualizer::create_trajectory_marker(const std::deque<Point3D> &trajectory, const std_msgs::msg::Header &header)
+  visualization_msgs::msg::Marker Visualizer::create_trajectory_marker(const std::deque<Point3D> &trajectory)
   {
     visualization_msgs::msg::Marker marker;
-    marker.header = header;
+    marker.header.frame_id = params_.frame_id;
+    marker.header.stamp = rclcpp::Clock().now();
     marker.ns = "ball_trajectory";
     marker.id = 1;
     marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
@@ -147,10 +150,11 @@ namespace ball_detector
     return marker;
   }
 
-  visualization_msgs::msg::Marker Visualizer::create_past_points_marker(const std::deque<Point3D> &past_points, const std_msgs::msg::Header &header)
+  visualization_msgs::msg::Marker Visualizer::create_past_points_marker(const std::deque<Point3D> &past_points)
   {
     visualization_msgs::msg::Marker marker;
-    marker.header = header;
+    marker.header.frame_id = params_.frame_id;
+    marker.header.stamp = rclcpp::Clock().now();
     marker.ns = "past_ball_points";
     marker.id = 2;
     marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;

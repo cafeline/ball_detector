@@ -82,4 +82,28 @@ namespace ball_detector
         static_cast<float>((point1.z + point2.z) / 2.0)};
   }
 
+  VisualizationData BallDetectorCore::prepare_visualization(const DetectionResult &result, const std::vector<Point3D> &processed_points)
+  {
+    VisualizationData viz_data;
+
+    // クラスター視覚化データの準備
+    viz_data.voxel_markers = visualizer_->create_voxel_cluster_markers(result.clusters);
+
+    // フィルタリング済みポイントクラウドの準備
+    viz_data.filtered_cloud = pointcloud_processor_->vector_to_PC2(processed_points);
+    viz_data.filtered_cloud.header.frame_id = params_.frame_id;
+    viz_data.filtered_cloud.header.stamp = rclcpp::Clock().now();
+
+    // ボールマーカーの準備
+    viz_data.ball_marker = visualizer_->create_ball_marker(result.ball_position);
+
+    // 軌跡データの更新と準備
+    visualizer_->update_trajectory(result.ball_position, viz_data.filtered_cloud);
+    viz_data.trajectory_marker = visualizer_->create_trajectory_marker(visualizer_->ball_trajectory_points_);
+
+    // 過去の点データの準備
+    viz_data.past_points_marker = visualizer_->create_past_points_marker(visualizer_->past_points_);
+
+    return viz_data;
+  }
 }

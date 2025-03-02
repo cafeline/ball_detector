@@ -20,10 +20,10 @@ namespace ball_detector
 
     // 引数は std::vector<ClusterInfo> のみ
     visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<ClusterInfo> &cluster_infos);
-    visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid, const std_msgs::msg::Header &header);
+    visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid);
     void update_trajectory(const Point3D &centroid, const sensor_msgs::msg::PointCloud2 &remaining_cloud);
-    visualization_msgs::msg::Marker create_trajectory_marker(const std::deque<Point3D> &trajectory, const std_msgs::msg::Header &header);
-    visualization_msgs::msg::Marker create_past_points_marker(const std::deque<Point3D> &past_points, const std_msgs::msg::Header &header);
+    visualization_msgs::msg::Marker create_trajectory_marker(const std::deque<Point3D> &trajectory);
+    visualization_msgs::msg::Marker create_past_points_marker(const std::deque<Point3D> &past_points);
 
     std::deque<Point3D> ball_trajectory_points_;
     std::deque<Point3D> past_points_;

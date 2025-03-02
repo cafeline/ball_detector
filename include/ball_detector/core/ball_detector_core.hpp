@@ -13,6 +13,7 @@
 #include "ball_detector/cluster/cluster_classifier.hpp"
 #include "ball_detector/visualizer/visualizer.hpp"
 #include "ball_detector/tracking/tracking_manager.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 
 namespace ball_detector
 {
@@ -21,6 +22,16 @@ namespace ball_detector
   {
     Point3D ball_position;
     std::vector<ClusterInfo> clusters;
+  };
+
+  // 視覚化用データを保持する構造体
+  struct VisualizationData
+  {
+    visualization_msgs::msg::MarkerArray voxel_markers;
+    sensor_msgs::msg::PointCloud2 filtered_cloud;
+    visualization_msgs::msg::Marker ball_marker;
+    visualization_msgs::msg::Marker trajectory_marker;
+    visualization_msgs::msg::Marker past_points_marker;
   };
 
   class BallDetectorCore
@@ -33,6 +44,9 @@ namespace ball_detector
     DetectionResult detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt);
 
     Point3D calculate_ball_position(const std::vector<ClusterInfo> &clusters);
+
+    // 視覚化用データを準備する関数
+    VisualizationData prepare_visualization(const DetectionResult &result, const std::vector<Point3D> &processed_points);
 
     std::unique_ptr<ClusterCreator> cluster_creator_;
     std::unique_ptr<ClusterClassifier> cluster_classifier_;
