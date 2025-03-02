@@ -1,5 +1,5 @@
-#include "ball_detector/tracking_manager.hpp"
-#include "ball_detector/tracking_utils.hpp"
+#include "ball_detector/tracking/tracking_manager.hpp"
+#include "ball_detector/tracking/tracking_utils.hpp"
 
 TrackingManager::TrackingManager()
     : tracking_engine_()

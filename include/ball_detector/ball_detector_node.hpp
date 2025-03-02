@@ -2,7 +2,7 @@
 #define BALL_DETECTOR_NODE_HPP_
 
 #include "rclcpp/rclcpp.hpp"
-#include "ball_detector/ball_detector_core.hpp"
+#include "ball_detector/core/ball_detector_core.hpp"
 
 namespace ball_detector
 {

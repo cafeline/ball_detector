@@ -1,10 +1,10 @@
 #ifndef BALL_DETECTOR_TRACKING_MANAGER_HPP
 #define BALL_DETECTOR_TRACKING_MANAGER_HPP
 
-#include "ball_detector/geometry_types.hpp"
-#include "ball_detector/clustering_types.hpp"
-#include "ball_detector/parameters.hpp"
-#include "ball_detector/tracking_engine.hpp"
+#include "ball_detector/types/geometry_types.hpp"
+#include "ball_detector/types/clustering_types.hpp"
+#include "ball_detector/types/parameters.hpp"
+#include "ball_detector/tracking/tracking_engine.hpp"
 #include <vector>
 #include <limits>
 

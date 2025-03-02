@@ -1,5 +1,5 @@
-#include "ball_detector/tracking_engine.hpp"
-#include "ball_detector/tracking_utils.hpp"
+#include "ball_detector/tracking/tracking_engine.hpp"
+#include "ball_detector/tracking/tracking_utils.hpp"
 
 std::vector<int> TrackingEngine::associateClusters(
     const std::vector<VoxelCluster> &current_clusters,

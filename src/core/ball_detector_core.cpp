@@ -1,4 +1,4 @@
-#include "ball_detector/ball_detector_core.hpp"
+#include "ball_detector/core/ball_detector_core.hpp"
 #include <chrono>
 #include <unordered_set>
 #include <random>

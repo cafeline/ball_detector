@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ball_detector/geometry_types.hpp"
-#include "ball_detector/parameters.hpp"
+#include "ball_detector/types/geometry_types.hpp"
+#include "ball_detector/types/parameters.hpp"
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <vector>
 #include <memory>

@@ -1,8 +1,8 @@
 #ifndef BALL_DETECTOR_TRACKING_ENGINE_HPP
 #define BALL_DETECTOR_TRACKING_ENGINE_HPP
 
-#include "ball_detector/geometry_types.hpp"
-#include "ball_detector/clustering_types.hpp"
+#include "ball_detector/types/geometry_types.hpp"
+#include "ball_detector/types/clustering_types.hpp"
 #include <vector>
 #include <map>
 #include <rclcpp/rclcpp.hpp>

@@ -1,4 +1,4 @@
-#include "ball_detector/visualizer.hpp"
+#include "ball_detector/visualizer/visualizer.hpp"
 
 namespace ball_detector
 {

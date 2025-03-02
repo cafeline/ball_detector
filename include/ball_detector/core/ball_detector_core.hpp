@@ -5,14 +5,14 @@
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "std_msgs/msg/bool.hpp"
-#include "ball_detector/geometry_types.hpp"
-#include "ball_detector/clustering_types.hpp"
-#include "ball_detector/parameters.hpp"
-#include "ball_detector/pointcloud_processor.hpp"
-#include "ball_detector/cluster_creator.hpp"
-#include "ball_detector/cluster_classifier.hpp"
-#include "ball_detector/visualizer.hpp"
-#include "ball_detector/tracking_manager.hpp"
+#include "ball_detector/types/geometry_types.hpp"
+#include "ball_detector/types/clustering_types.hpp"
+#include "ball_detector/types/parameters.hpp"
+#include "ball_detector/processing/pointcloud_processor.hpp"
+#include "ball_detector/cluster/cluster_creator.hpp"
+#include "ball_detector/cluster/cluster_classifier.hpp"
+#include "ball_detector/visualizer/visualizer.hpp"
+#include "ball_detector/tracking/tracking_manager.hpp"
 
 namespace ball_detector
 {

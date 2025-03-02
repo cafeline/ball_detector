@@ -1,4 +1,4 @@
-#include "ball_detector/cluster_classifier.hpp"
+#include "ball_detector/cluster/cluster_classifier.hpp"
 #include <algorithm>
 #include <limits>
 #include <random>

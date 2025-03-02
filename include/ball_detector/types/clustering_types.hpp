@@ -3,7 +3,7 @@
 #include <vector>
 #include <cstddef>
 #include <array>
-#include "ball_detector/geometry_types.hpp"
+#include "ball_detector/types/geometry_types.hpp"
 
 // ボクセル構造体
 struct Voxel

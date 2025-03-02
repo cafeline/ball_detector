@@ -1,4 +1,4 @@
-#include "ball_detector/pointcloud_processor.hpp"
+#include "ball_detector/processing/pointcloud_processor.hpp"
 
 #include <algorithm>
 #include <unordered_map>
