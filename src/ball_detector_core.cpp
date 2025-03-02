@@ -21,7 +21,7 @@ namespace ball_detector
     cluster_classifier_ = std::make_unique<ClusterClassifier>(params_);
     tracking_manager_ = std::make_unique<TrackingManager>();
     visualizer_ = std::make_unique<Visualizer>(params_);
-    pointcloud_processor = std::make_unique<PointCloudProcessor>(params_);
+    pointcloud_processor_ = std::make_unique<PointCloudProcessor>(params_);
   }
 
   DetectionResult BallDetectorCore::detect_ball(const std::vector<Point3D> &processed_points, const rclcpp::Time &current_time, double dt)

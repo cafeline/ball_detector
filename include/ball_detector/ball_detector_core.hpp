@@ -34,14 +34,11 @@ namespace ball_detector
 
     Point3D calculate_ball_position(const std::vector<ClusterInfo> &clusters);
 
-    // 新規追加: ClusterInfoのvectorからVoxelClusterを抽出し、Visualizerの対応する関数を呼び出す
-    visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<ClusterInfo> &clusters);
-
     std::unique_ptr<ClusterCreator> cluster_creator_;
     std::unique_ptr<ClusterClassifier> cluster_classifier_;
     std::unique_ptr<TrackingManager> tracking_manager_;
     std::unique_ptr<Visualizer> visualizer_;
-    std::unique_ptr<PointCloudProcessor> pointcloud_processor;
+    std::unique_ptr<PointCloudProcessor> pointcloud_processor_;
 
   private:
     Parameters params_;

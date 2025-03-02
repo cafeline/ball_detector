@@ -61,7 +61,7 @@ namespace ball_detector
     previous_time_ = current_time;
 
     // ポイントクラウドの処理
-    std::vector<Point3D> processed_points = ball_detector_core_->pointcloud_processor->process(msg, self_pose_.x, self_pose_.y, self_pose_.z);
+    std::vector<Point3D> processed_points = ball_detector_core_->pointcloud_processor_->process(msg, self_pose_.x, self_pose_.y, self_pose_.z);
 
     // ボール検出
     DetectionResult result = ball_detector_core_->detect_ball(processed_points, current_time, dt);
@@ -99,7 +99,7 @@ namespace ball_detector
     visualization_msgs::msg::MarkerArray voxel_marker_array = ball_detector_core_->visualizer_->create_voxel_cluster_markers(result.clusters);
     clustered_voxel_publisher_->publish(voxel_marker_array);
 
-    sensor_msgs::msg::PointCloud2 remaining_cloud = ball_detector_core_->pointcloud_processor->vector_to_PC2(processed_points);
+    sensor_msgs::msg::PointCloud2 remaining_cloud = ball_detector_core_->pointcloud_processor_->vector_to_PC2(processed_points);
     filtered_cloud_publisher_->publish(remaining_cloud);
 
     if (result.ball_position.x == 0.0 && result.ball_position.y == 0.0 && result.ball_position.z == 0.0)
