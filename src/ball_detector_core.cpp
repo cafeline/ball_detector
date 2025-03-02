@@ -8,7 +8,6 @@ namespace ball_detector
 {
   BallDetectorCore::BallDetectorCore()
   {
-    // ClusterManagerの代わりに個別にCreatorとClassifierを初期化
     cluster_creator_ = std::make_unique<ClusterCreator>(params_);
     cluster_classifier_ = std::make_unique<ClusterClassifier>(params_);
     tracking_manager_ = std::make_unique<TrackingManager>();
@@ -18,7 +17,6 @@ namespace ball_detector
   void BallDetectorCore::set_params(const Parameters &params)
   {
     params_ = params;
-    // ClusterManagerの代わりに個別にCreatorとClassifierを初期化
     cluster_creator_ = std::make_unique<ClusterCreator>(params_);
     cluster_classifier_ = std::make_unique<ClusterClassifier>(params_);
     tracking_manager_ = std::make_unique<TrackingManager>();
