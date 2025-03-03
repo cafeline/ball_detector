@@ -44,7 +44,7 @@ namespace tracking_utils
     if (a.voxels.size() != b.voxels.size())
       return false;
 
-    // 単純化のためにヴォクセル数で比較
+    // 単純にボクセル数で比較
     for (size_t i = 0; i < a.voxels.size(); ++i)
     {
       if (a.voxels[i].x != b.voxels[i].x ||

@@ -23,7 +23,7 @@ namespace ball_detector
       case ClusterType::BALL_CANDIDATE:
         r = 1.0f;
         g = 0.0f;
-        b = 0.0f; // ボールクラスターは赤
+        b = 0.0f; // 静的ボールクラスターは赤
         break;
       case ClusterType::LARGE:
       case ClusterType::UNKNOWN:
@@ -34,7 +34,6 @@ namespace ball_detector
         break;
       }
 
-      // ClusterInfo 内の VoxelCluster を利用してマーカーを生成
       const VoxelCluster &cluster = cluster_info.cluster;
       for (size_t v = 0; v < cluster.voxels.size(); ++v)
       {
@@ -106,8 +105,7 @@ namespace ball_detector
       return;
     }
 
-    // 設定可能な履歴サイズ（params_から取得するか、動的に調整可能）
-    const size_t trajectory_history_size = 10;
+    const size_t trajectory_history_size = 20;
 
     if (ball_trajectory_points_.size() >= trajectory_history_size)
     {
@@ -115,7 +113,6 @@ namespace ball_detector
     }
     ball_trajectory_points_.push_back(centroid);
 
-    // ball_trajectory_points_と完全に同期させる
     past_points_ = ball_trajectory_points_;
 
     visualization_msgs::msg::Marker trajectory_marker = create_trajectory_marker(ball_trajectory_points_);

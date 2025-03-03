@@ -9,7 +9,6 @@
 
 PointCloudProcessor::PointCloudProcessor(const Parameters &params) : params_(params) {}
 
-// コサインとサインの計算を一度にするためのヘルパー
 void PointCloudProcessor::calculate_rotation(double angle, double &cos_val, double &sin_val) const
 {
   cos_val = std::cos(angle);

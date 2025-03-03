@@ -18,7 +18,6 @@ namespace ball_detector
     Visualizer(const Parameters &params);
     ~Visualizer() = default;
 
-    // 引数は std::vector<ClusterInfo> のみ
     visualization_msgs::msg::MarkerArray create_voxel_cluster_markers(const std::vector<ClusterInfo> &cluster_infos);
     visualization_msgs::msg::Marker create_ball_marker(const Point3D &centroid);
     void update_trajectory(const Point3D &centroid, const sensor_msgs::msg::PointCloud2 &remaining_cloud);

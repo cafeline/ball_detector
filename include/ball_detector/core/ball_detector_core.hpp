@@ -17,14 +17,12 @@
 
 namespace ball_detector
 {
-  // 検出結果とビジュアライゼーションデータを格納する構造体
   struct DetectionResult
   {
     Point3D ball_position;
     std::vector<ClusterInfo> clusters;
   };
 
-  // 視覚化用データを保持する構造体
   struct VisualizationData
   {
     visualization_msgs::msg::MarkerArray voxel_markers;

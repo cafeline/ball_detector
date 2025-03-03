@@ -13,7 +13,6 @@ namespace ball_detector
 
   void BallDetectorNode::load_parameters()
   {
-    // パラメータの読み込み処理
     params_.min_x = this->get_parameter("min_x").as_double();
     params_.max_x = this->get_parameter("max_x").as_double();
     params_.min_y = this->get_parameter("min_y").as_double();
@@ -34,7 +33,6 @@ namespace ball_detector
 
   void BallDetectorNode::setup_publishers_and_subscribers()
   {
-    // サブスクリプションの設定
     subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/livox/lidar", 10, std::bind(&BallDetectorNode::pointcloud_callback, this, std::placeholders::_1));
     pose_subscription_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(

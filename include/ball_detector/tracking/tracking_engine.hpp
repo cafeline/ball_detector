@@ -39,14 +39,12 @@ public:
       double dt,
       double speed_threshold);
 
-  // トラックへのアクセサ
   const std::map<int, ClusterTrack> &getTracks() const { return tracks_; }
 
 private:
   // トラック情報を管理するマップ
   std::map<int, ClusterTrack> tracks_;
 
-  // 内部ヘルパーメソッド
   int createNewTrack(const VoxelCluster &cluster, rclcpp::Time current_time);
   void updateTrack(int track_id, const Point3D &centroid, rclcpp::Time current_time);
 };

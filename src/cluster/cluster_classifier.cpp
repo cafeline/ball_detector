@@ -6,7 +6,6 @@
 #include <cmath>
 #include <rclcpp/rclcpp.hpp>
 
-// ClusterClassifier実装
 ClusterClassifier::ClusterClassifier(const Parameters &params)
     : params_(params)
 {
@@ -41,7 +40,6 @@ void ClusterClassifier::calculate_cluster_size(const VoxelCluster &cluster,
   double max_y = std::numeric_limits<double>::lowest();
   double max_z = std::numeric_limits<double>::lowest();
 
-  // 既に抽出されたクラスタ内の点群を使う
   for (const auto &point : cluster.points)
   {
     min_x = std::min(min_x, static_cast<double>(point.x));

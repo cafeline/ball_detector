@@ -10,7 +10,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sstream>
 
-// ClusterCreator実装
 ClusterCreator::ClusterCreator(const Parameters &params)
     : params_(params)
 {
@@ -132,7 +131,6 @@ bool ClusterCreator::point_in_voxel(const Point3D &point, const Voxel &voxel) co
          point.z < params_.min_z + (voxel.z + 1) * params_.voxel_size_z;
 }
 
-// 新しく追加する関数
 std::vector<Voxel> ClusterCreator::create_voxel(const std::vector<Point3D> &points)
 {
   std::unordered_map<std::string, Voxel> occupied_voxels;

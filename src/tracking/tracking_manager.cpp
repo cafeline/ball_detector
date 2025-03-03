@@ -111,7 +111,6 @@ void TrackingManager::update_ball_cluster(
     clusters[best_idx].cluster.points.clear();
     clusters[best_idx].cluster.points.push_back(ball_position);
 
-    // タイプを明示的に設定
     clusters[best_idx].type = ClusterType::DYNAMIC_BALL;
   }
 }

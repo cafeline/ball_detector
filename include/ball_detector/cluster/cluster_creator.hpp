@@ -15,7 +15,6 @@ public:
   std::vector<ClusterInfo> create_voxel_clustering(const std::vector<Point3D> &points);
   std::vector<Voxel> create_voxel(const std::vector<Point3D> &points);
 
-  // 静的メソッド
   static std::string voxel_to_key(int x, int y, int z);
   static std::string point_to_voxel_key(const Point3D &point, const Parameters &params);
 

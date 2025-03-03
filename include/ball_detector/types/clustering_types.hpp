@@ -5,52 +5,37 @@
 #include <array>
 #include "ball_detector/types/geometry_types.hpp"
 
-// ボクセル構造体
 struct Voxel
 {
-  int x, y, z;                 // ボクセルのインデックス
-  int point_count;             // ボクセル内の点群数
+  int x, y, z;
   std::vector<Point3D> points; // ボクセル内の点群データ
-  std::array<float, 4> color;  // ボクセルの色 (RGBA)
+  int point_count;            // ボクセル内の点群数
 
-  // デフォルトコンストラクタ
-  Voxel() : x(0), y(0), z(0), point_count(0), color{1.0f, 1.0f, 1.0f, 1.0f} {}
+  Voxel() : x(0), y(0), z(0), point_count(0) {}
+  Voxel(int vx, int vy, int vz) : x(vx), y(vy), z(vz), point_count(0) {}
 
-  // パラメータ付きコンストラクタ
-  Voxel(int vx, int vy, int vz) : x(vx), y(vy), z(vz), point_count(1), color{1.0f, 1.0f, 1.0f, 1.0f} {}
-
-  // 点群数をインクリメント
   void increment()
   {
     point_count++;
   }
-
-  // 点を追加
-  void add_point(const Point3D &point)
-  {
-    points.push_back(point);
-    increment();
-  }
 };
 
-// ボクセルクラスタ構造体
 struct VoxelCluster
 {
   std::vector<Voxel> voxels;   // クラスタ内のボクセル
-  int total_point_count;       // クラスタ内の総点群数
   std::vector<Point3D> points; // クラスタ内の全点群データ
 };
 
 // クラスタの種類を表す列挙型
 enum class ClusterType
 {
-  UNKNOWN,        // 不明なクラスタ
+  UNKNOWN,        // 不明
   LARGE,          // ボールより大きい
-  BALL_CANDIDATE, // ボール候補クラスタ
-  DYNAMIC_BALL    // 動的ボールクラスタ
+  BALL_CANDIDATE, // ボール候補
+  DYNAMIC_BALL    // 動的ボール
 };
 
-// クラスタの情報（クラスタ本体とその一意なインデックス）を保持する構造体
+// クラスタの情報を保持する構造体
 struct ClusterInfo
 {
   size_t index;
